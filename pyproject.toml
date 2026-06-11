@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-orchestrator"
+version = "0.1.0"
+description = "Оркестратор совместной разработки несколькими LLM (Gemini + Claude Code) через общее файловое пространство с git-версионированием"
+requires-python = ">=3.10"
+dependencies = []  # только стандартная библиотека
+
+[project.scripts]
+ai-orchestrator = "orchestrator.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["orchestrator*"]

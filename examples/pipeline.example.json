@@ -1,0 +1,18 @@
+[
+  {
+    "agent": "gemini",
+    "role": "generate",
+    "instruction": "Спроектируй архитектуру решения и создай спецификацию SPEC.md, скелет кода и заглушки тестов.",
+    "only_first_iteration": true
+  },
+  {
+    "agent": "claude_code",
+    "role": "refine",
+    "instruction": "Реализуй функциональность по SPEC.md, доведи тесты до зелёного состояния, выполни рефакторинг."
+  },
+  {
+    "agent": "gemini",
+    "role": "review",
+    "instruction": "Сверь реализацию со SPEC.md и глобальной задачей. approved — только при полном соответствии; иначе changes_requested с конкретным списком правок в notes."
+  }
+]
