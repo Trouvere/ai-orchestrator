@@ -246,6 +246,7 @@ class Orchestrator:
 
         log.info("→ шаг %d: %s (%s, режим %s)", index, agent.name, step.role, agent.mode)
         started = time.time()
+        print(f"  ⏳ {agent.name.upper()} работает...", flush=True)
         try:
             result = agent.run(ctx, self.workspace)
         except Exception as exc:  # noqa: BLE001 — сбой агента не должен терять журнал
@@ -256,10 +257,14 @@ class Orchestrator:
                 raw=traceback.format_exc(),
             )
 
+        print(f"  ✓ {agent.name.upper()} завершил работу", flush=True)
+
         # Передача файлов через оркестратор.
         if agent.mode == "api" and result.status is not Status.ERROR:
+            print(f"    → применяю файлы к диску...", flush=True)
             self.workspace.apply_changes(result.changes)        # манифест -> диск
         elif agent.mode == "filesystem":
+            print(f"    → снимаю изменения с диска...", flush=True)
             result.changes = self.workspace.pending_changes()   # диск -> история
 
         commit = self.workspace.snapshot(
