@@ -49,10 +49,18 @@ python -m scripts.check_gemini_key --model gemini-2.5-pro
 
 ## PowerShell на Windows
 
+**Важно:** используй бэккик `` ` `` для переноса строк (не `\`):
+
 ```powershell
 python -m orchestrator.cli `
     --workspace ./demo-todo `
-    --objective "Создай FastAPI TODO API с тестами" `
+    --objective "Создай FastAPI приложение с REST API для управления TODO-списком. Endpoints: GET /todos, POST /todos, PUT /todos/{id}, DELETE /todos/{id}. Используй Pydantic для моделей. Напиши тесты с pytest." `
     --test-command "python -m pytest -v" `
     --max-iterations 4
+```
+
+Или как одну строку:
+
+```powershell
+python -m orchestrator.cli --workspace ./demo-todo --objective "Создай FastAPI приложение с REST API для управления TODO-списком" --test-command "python -m pytest -v" --max-iterations 4
 ```
