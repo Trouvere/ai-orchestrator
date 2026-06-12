@@ -98,6 +98,78 @@ python -m orchestrator.cli \
 
 Полезные опции: `--gemini-model`, `--claude-model`, `--claude-permission-mode` (по умолчанию `acceptEdits`; набор режимов смотрите в `claude --help` своей версии), `--claude-max-turns`, `--pipeline path.json`, `--objective-file`, `--verbose`.
 
+## Этапы проверки перед запуском
+
+### 1️⃣ Запуск мока (офлайн, без ключей)
+
+Первым делом проверь, что весь контур работает:
+
+```bash
+python -m orchestrator.cli --workspace ./demo-mock --mock --verbose
+```
+
+**Что произойдёт:**
+- ✓ Мок-генератор создаст файлы проекта
+- ✓ Мок-доработчик улучшит код
+- ✓ Запустятся тесты
+- ✓ Мок-ревьюер проведёт проверку
+- ✓ Возможны несколько итераций до `approved`
+
+**Результат:** в `./demo-mock` будет полная git-история всех шагов. Если контур прошёл успешно — всё готово для реального запуска.
+
+### 2️⃣ Проверка Gemini API ключа
+
+```bash
+python -m scripts.check_gemini_key
+python -m scripts.check_gemini_key --model gemini-2.5-pro
+```
+
+**Если успешно:** видишь `[OK] Ключ рабочий. Ответ модели: 'Pong'`
+
+**Если ошибка:**
+- `[FAIL] Ключ не найден` → установи `GEMINI_API_KEY` в `.env` или окружение
+- `API_KEY_INVALID` → ключ неправильный
+- `HTTP 403` → доступа нет (включи Generative Language API в Google Cloud)
+- `HTTP 429` → квота исчерпана (подожди 24 часа или обнови план)
+- `HTTP 404` → модель недоступна для этого ключа
+
+### 3️⃣ Проверка Claude Code CLI
+
+```bash
+claude --version
+claude --help
+```
+
+**Если ошибка:** установи с `npm install -g @anthropic-ai/claude-code` и авторизуйся
+
+### 4️⃣ Проверка рабочей среды
+
+```bash
+# Python 3.10+
+python --version
+
+# Git
+git --version
+
+# Команда тестирования (если будешь использовать)
+python -m pytest --version
+# или
+python -m unittest discover --help
+```
+
+### 5️⃣ Полный запуск оркестратора
+
+Только после всех проверок:
+
+```bash
+python -m orchestrator.cli \
+    --workspace ./my-project \
+    --objective "Сделай REST API списка задач на FastAPI с тестами" \
+    --test-command "python -m pytest -q" \
+    --max-iterations 4 \
+    --verbose
+```
+
 ### Офлайн-проверка контура (без ключей)
 
 ```bash
