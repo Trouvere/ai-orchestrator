@@ -70,7 +70,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--test-command", help='команда проверки, напр. "python -m pytest -q"')
     p.add_argument("--pipeline", help="JSON-файл с пользовательским конвейером шагов")
 
-    p.add_argument("--gemini-model", default="gemini-2.5-pro")
+    # p.add_argument("--gemini-model", default="gemini-2.5-pro")
+    p.add_argument("--gemini-model", default="gemini-2.5-flash")
     p.add_argument("--claude-model", default=None, help="модель для Claude Code (по умолчанию его собственная)")
     p.add_argument("--claude-cmd", default="claude", help="исполняемый файл Claude Code CLI")
     p.add_argument("--claude-permission-mode", default="acceptEdits",

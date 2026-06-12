@@ -19,6 +19,8 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import tempfile
+from pathlib import Path
 
 from ..protocol import AgentResult, Status, extract_json
 from .base import BaseAgent, StepContext, build_prompt
@@ -62,8 +64,8 @@ class ClaudeCodeAgent(BaseAgent):
 
     # ------------------------------------------------------------- команда
 
-    def _build_command(self, prompt: str) -> list[str]:
-        cmd = [self.claude_cmd, "-p", prompt, "--output-format", "json"]
+    def _build_command(self, prompt_file: str) -> list[str]:
+        cmd = [self.claude_cmd, "-p", prompt_file, "--output-format", "json"]
         if self.model:
             cmd += ["--model", self.model]
         if self.max_turns:
@@ -91,7 +93,8 @@ class ClaudeCodeAgent(BaseAgent):
     # ----------------------------------------------------------------- шаг
 
     def run(self, ctx: StepContext, workspace) -> AgentResult:
-        if shutil.which(self.claude_cmd) is None:
+        claude_path = shutil.which(self.claude_cmd)
+        if claude_path is None:
             return AgentResult(
                 agent=self.name,
                 status=Status.ERROR,
@@ -102,20 +105,34 @@ class ClaudeCodeAgent(BaseAgent):
             )
 
         prompt = build_prompt(ctx, include_files=False) + "\n\n" + CLAUDE_CODE_TASK_SUFFIX
+
+        # На Windows передача длинного промпта через аргумент может вызвать ошибку,
+        # поэтому пишем промпт во временный файл с явным именем
+        temp_dir = Path(tempfile.gettempdir()) / "claude-orchestrator"
+        temp_dir.mkdir(exist_ok=True)
+        prompt_file = str(temp_dir / "prompt.txt")
+        Path(prompt_file).write_text(prompt, encoding="utf-8")
+
         try:
+            cmd = self._build_command(prompt_file)
+            # Заменить относительный путь на абсолютный для надёжности на Windows
+            cmd[0] = claude_path
             proc = subprocess.run(
-                self._build_command(prompt),
+                cmd,
                 cwd=workspace.root,
                 capture_output=True,
                 text=True,
                 timeout=self.timeout,
             )
         except subprocess.TimeoutExpired:
+            Path(prompt_file).unlink(missing_ok=True)
             return AgentResult(
                 agent=self.name,
                 status=Status.ERROR,
                 summary=f"Claude Code не уложился в таймаут {self.timeout} с",
             )
+        finally:
+            Path(prompt_file).unlink(missing_ok=True)
 
         text, is_error = self._final_text(proc.stdout)
         raw = proc.stdout + ("\n--- stderr ---\n" + proc.stderr if proc.stderr else "")
