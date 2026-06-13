@@ -70,9 +70,9 @@ python -m scripts.check_gemini_key
 
 - Ключ Gemini: `GEMINI_API_KEY` (или `GOOGLE_API_KEY`), берётся из окружения или `.env`
   (реальное окружение в приоритете). См. [.env.example](.env.example).
-- Дефолтная модель Gemini в CLI — `gemini-2.5-flash` ([cli.py](orchestrator/cli.py),
-  `--gemini-model`), хотя README/ARCHITECTURE упоминают `gemini-2.5-pro`. При правках держи
-  это в одном месте согласованным.
+- Дефолтная модель Gemini — `gemini-2.5-flash`, согласованно в двух местах: дефолт `--gemini-model`
+  ([cli.py](orchestrator/cli.py)) и дефолт параметра `model` у класса `GeminiAgent`
+  ([gemini.py](orchestrator/agents/gemini.py)). Меняешь — правь оба, чтобы не разъехались.
 
 ## Язык
 

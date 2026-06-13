@@ -1,174 +1,73 @@
 # AI-оркестратор: совместная разработка несколькими LLM
 
-Многомодельный оркестратор для автоматизированной разработки: координирует Gemini и Claude Code через общее рабочее пространство с git-версионированием.
+Многомодельный оркестратор для автоматизированной разработки: координирует **Gemini** (режим `api`) и **Claude Code** (режим `filesystem`) через общее рабочее пространство с git-версионированием на каждый шаг.
 
-**Зависимостей нет** — только Python ≥ 3.10 и `git`.
+**Зависимостей нет** — только Python ≥ 3.10 и `git` в `PATH`. Для боевого запуска дополнительно нужны Claude Code CLI и ключ Gemini.
 
-## 📋 Оглавление
-
-- [Быстрый старт](#быстрый-старт)
-- [Требования](#требования)
-- [Установка](#установка)
-- [Первый запуск](#первый-запуск)
-- [Ограничения и безопасность](#ограничения-и-безопасность)
-- [Подробно](#подробно)
-
-## 🚀 Быстрый старт
-
-### 1. Проверь окружение
-```bash
-python --version          # Python 3.10+
-git --version            # Git установлен
-claude --version         # Claude Code CLI (установи: npm install -g @anthropic-ai/claude-code)
-```
-
-### 2. Запусти мок (без API ключей)
-```bash
-python -m orchestrator.cli \
-    --workspace ./demo-mock \
-    --mock \
-    --verbose
-```
-
-**Результат:** полная git-история всех шагов в `./demo-mock/` — значит всё работает ✓
-
-### 3. Готово!
-```bash
-# Твой первый реальный проект
-python -m orchestrator.cli \
-    --workspace ./my-project \
-    --objective "Создай REST API для TODO на FastAPI" \
-    --test-command "python -m pytest -q" \
-    --max-iterations 4
-```
-
----
-
-## 📋 Требования
-
-- **Python** ≥ 3.10
-- **Git** (установлен в PATH)
-- **Claude Code CLI**: `npm install -g @anthropic-ai/claude-code` + авторизация
-- **Gemini API ключ** (для шагов с Gemini):
-  ```bash
-  export GEMINI_API_KEY="..."   # или в .env файл
-  ```
-
----
-
-## 📦 Установка
+## Установка
 
 ```bash
-# Склонируй репо
 git clone <repo-url>
 cd ai-orchestrator
-
-# Опционально: установи для удобства
-pip install -e .
-
-# Или запускай напрямую
-python -m orchestrator.cli --help
+pip install -e .            # опционально; иначе — python -m orchestrator.cli
 ```
 
-Никаких других зависимостей — только стандартная Python библиотека.
+Claude Code CLI (для filesystem-агента): `npm install -g @anthropic-ai/claude-code` + авторизация.
+Ключ Gemini (для api-агента): `export GEMINI_API_KEY="..."` или строкой в `.env` (см. [.env.example](.env.example)).
 
----
+## Быстрый старт
 
-## 🔧 Первый запуск
-
-### Этап 1️⃣: Проверка окружения (2 мин)
+**1. Офлайн-прогон контура** — без ключей и CLI, проверяет, что весь конвейер работает:
 
 ```bash
-# Python и Git
-python --version
-git --version
-
-# Claude Code
-claude --version
-
-# Gemini API ключ (если планируешь использовать Gemini)
-python -m scripts.check_gemini_key
+python -m orchestrator.cli --workspace ./demo-mock --mock --verbose
 ```
 
-Если всё зелёно — переходи к этапу 2.
+Результат: в `./demo-mock/` появится git-история всех шагов (generate → refine → тесты → review). Если она есть — контур исправен.
 
-### Этап 2️⃣: Офлайн-тест контура (мок, без ключей, 3 мин)
+**2. Проверка ключа Gemini** (если планируете боевой запуск):
 
 ```bash
-python -m orchestrator.cli \
-    --workspace ./test-mock \
-    --mock \
-    --verbose
+python -m scripts.check_gemini_key            # успех: [OK] Ключ рабочий. Ответ модели: 'Pong'
 ```
 
-**Что должно произойти:**
-- ✓ Мок создаст файлы проекта
-- ✓ Мок улучшит код
-- ✓ Тесты запустятся
-- ✓ Мок ревьюер проверит, может вернуть замечания
-- ✓ Возможны 1-2 итерации до `approved`
+Типичные ошибки: `Ключ не найден` → не задан `GEMINI_API_KEY`; `API_KEY_INVALID` → неверный ключ; `HTTP 403` → не включён Generative Language API; `HTTP 429` → исчерпана квота.
 
-**Результат:** в `./test-mock` полная git-история. Если успешно — весь контур работает.
-
-### Этап 3️⃣: Проверка Gemini API (если планируешь)
-
-```bash
-python -m scripts.check_gemini_key
-
-# или конкретная модель
-python -m scripts.check_gemini_key --model gemini-2.5-pro
-```
-
-**Успех:** `[OK] Ключ рабочий. Ответ модели: 'Pong'`
-
-**Ошибки:**
-- `Ключ не найден` → установи `GEMINI_API_KEY` в окружение или `.env`
-- `API_KEY_INVALID` → неправильный ключ
-- `HTTP 403` → включи Generative Language API в Google Cloud
-- `HTTP 429` → квота исчерпана
-
-### Этап 4️⃣: Первый реальный проект
+**3. Реальный проект:**
 
 ```bash
 python -m orchestrator.cli \
     --workspace ./my-project \
     --objective "REST API списка задач на FastAPI с тестами" \
     --test-command "python -m pytest -q" \
-    --max-iterations 4 \
-    --verbose
+    --max-iterations 4 --verbose
 ```
 
-**Опции:**
-- `--gemini-model` (default: `gemini-2.5-pro`)
-- `--claude-model` (выбирается автоматически)
-- `--claude-permission-mode` (default: `acceptEdits`)
-- `--pipeline` (свой конвейер вместо стандартного)
-- `--objective-file` (если цель в файле)
+### Основные опции
 
----
+| Опция | Назначение | По умолчанию |
+|---|---|---|
+| `--workspace` | каталог проекта (создаётся, если нет) | — |
+| `--objective` / `--objective-file` | задача текстом или из файла | — |
+| `--test-command` | команда тестов между итерациями | нет |
+| `--max-iterations` | лимит итераций | `3` |
+| `--pipeline` | свой JSON-конвейер вместо стандартного | стандартный |
+| `--gemini-model` | модель Gemini | `gemini-2.5-flash` |
+| `--claude-model` | модель Claude Code | его собственная |
+| `--claude-permission-mode` | режим прав Claude Code | `acceptEdits` |
+| `--mock` | офлайн-агенты без ключей и CLI | выкл. |
 
-## ⚠️ Ограничения и безопасность
+`python -m orchestrator.cli --help` — полный список.
 
-- **Workspace как песочница:** Claude Code и команда тестов исполняют код в каталоге. Для недоверенных задач используй контейнер/VM.
-- **Валидация путей:** абсолютные пути, `..`, запись в `.git` и `.orchestrator` запрещены.
-- **Контроль качества:** основная линия — ревью-шаг и тесты (не блокируй их).
-- **Версии CLI:** флаги Claude Code могут меняться — смотри `claude --help`.
-- **Лимиты контекста:** большие файлы усекаются; используй `files` для ограничения контекста.
+## Ограничения и безопасность
 
----
+- **Workspace = песочница:** Claude Code и команда тестов исполняют код в каталоге. Для недоверенных задач запускайте в контейнере/VM.
+- Пути из манифестов жёстко валидируются (без `..`, абсолютных путей и записи в `.git`/`.orchestrator`); основная линия контроля качества — ревью-шаг и тесты.
+- Флаги Claude Code CLI могут меняться между версиями — сверяйтесь с `claude --help`.
 
-## 📖 Подробно
+Подробнее — в [ARCHITECTURE.md](ARCHITECTURE.md#безопасность).
 
-- **[ARCHITECTURE.md](ARCHITECTURE.md)**
-  - Архитектура и диаграммы системы
-  - Протокол обмена (Gemini API vs Claude Code filesystem)
-  - Версионирование через git-коммиты
-  - Цикл выполнения конвейера и логика завершения
-  - **Свой конвейер** — создание JSON-конвейера
-  - **Расширение** — интеграция новой AI-модели
-  - Ограничения безопасности
-  
-- **[EXAMPLES.md](EXAMPLES.md)**
-  - Примеры команд: FastAPI TODO, Fibonacci, Click CLI
-  - Офлайн-демо (без API ключей и CLI)
-  - Варианты для Bash и PowerShell
+## Дальше
+
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** — архитектура и диаграммы, протокол обмена, версионирование, цикл выполнения, свой конвейер, добавление новой модели.
+- **[EXAMPLES.md](EXAMPLES.md)** — готовые команды (FastAPI TODO, Fibonacci, Click CLI), офлайн-демо, варианты для Bash и PowerShell.
