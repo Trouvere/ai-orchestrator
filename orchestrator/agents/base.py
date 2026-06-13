@@ -30,7 +30,7 @@ class StepContext:
     instruction: str               # инструкция текущего шага
     iteration: int
     step_index: int
-    role: str                      # generate | refine | review | ...
+    role: str                      # ярлык этапа: plan | implement | review | ...
     file_tree: str = ""            # обзор структуры проекта
     files: dict[str, str] = field(default_factory=dict)   # путь -> содержимое
     history: list[dict[str, Any]] = field(default_factory=list)

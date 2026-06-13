@@ -1,18 +1,31 @@
 [
   {
-    "agent": "gemini",
-    "role": "generate",
-    "instruction": "Спроектируй архитектуру решения и создай спецификацию SPEC.md, скелет кода и заглушки тестов.",
+    "kind": "agent",
+    "executor": "api",
+    "role": "plan",
+    "instruction": "Спроектируй решение и запиши план в PLAN.md: раздели работу на этапы (бэкенд, фронтенд, тесты) с указанием файлов. Кода не пиши.",
     "only_first_iteration": true
   },
   {
-    "agent": "claude_code",
-    "role": "refine",
-    "instruction": "Реализуй функциональность по SPEC.md, доведи тесты до зелёного состояния, выполни рефакторинг."
+    "kind": "agent",
+    "executor": "claude",
+    "role": "implement-backend",
+    "instruction": "Реализуй бэкенд согласно этапу 'бэкенд' из PLAN.md."
   },
   {
-    "agent": "gemini",
+    "kind": "agent",
+    "executor": "claude",
+    "role": "implement-tests",
+    "instruction": "Напиши тесты согласно этапу 'тесты' из PLAN.md и доведи их до зелёного состояния."
+  },
+  {
+    "kind": "test"
+  },
+  {
+    "kind": "agent",
+    "executor": "api",
     "role": "review",
-    "instruction": "Сверь реализацию со SPEC.md и глобальной задачей. approved — только при полном соответствии; иначе changes_requested с конкретным списком правок в notes."
+    "instruction": "Сверь реализацию с PLAN.md и глобальной задачей. approved — только при полном соответствии; иначе changes_requested с конкретным списком правок в notes.",
+    "gate": true
   }
 ]

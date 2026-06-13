@@ -31,13 +31,23 @@ log = logging.getLogger("orchestrator")
 
 @dataclass
 class Step:
-    """Один шаг конвейера: какой агент, в какой роли, с какой инструкцией."""
+    """Один шаг конвейера.
 
-    agent: str                          # ключ в реестре агентов
-    role: str                           # generate | refine | review | произвольная
-    instruction: str
-    only_first_iteration: bool = False  # например, первичная генерация
-    include_file_contents: bool = True  # передавать ли содержимое файлов api-агенту
+    ``kind="agent"`` — работу выполняет исполнитель (``executor``) по инструкции.
+    ``kind="test"``  — оркестратор сам запускает ``--test-command``, без модели;
+    результат тестов попадает в контекст последующих шагов.
+
+    ``role`` — только ярлык/селектор инструкции (plan | implement | review | …),
+    поведения он больше не задаёт: это делают ``kind`` и ``gate``.
+    """
+
+    kind: str = "agent"                 # "agent" | "test"
+    executor: str = ""                  # "api" | "claude" — ключ в реестре исполнителей (для kind="agent")
+    role: str = "step"                  # ярлык этапа: plan | implement | review | произвольный
+    instruction: str = ""
+    only_first_iteration: bool = False  # например, планирование — один раз
+    gate: bool = False                  # шаг-гейт: status=approved (+ зелёные тесты) завершает прогон
+    include_file_contents: bool = True  # передавать ли содержимое файлов api-исполнителю
     files: list[str] | None = None      # ограничить контекст конкретными файлами
 
 
@@ -85,9 +95,12 @@ class Orchestrator:
         test_timeout: int = 600,
         history_window: int = 10,
     ) -> None:
-        unknown = [s.agent for s in pipeline if s.agent not in agents]
+        unknown = sorted({s.executor for s in pipeline if s.kind == "agent" and s.executor not in agents})
         if unknown:
-            raise ValueError(f"в конвейере указаны незарегистрированные агенты: {unknown}")
+            raise ValueError(
+                f"в конвейере указаны неизвестные исполнители: {unknown}; "
+                f"доступны: {sorted(agents)}"
+            )
         self.workspace = workspace
         self.agents = agents
         self.pipeline = pipeline
@@ -150,6 +163,39 @@ class Orchestrator:
         log.info("   тесты: %s", "ПРОЙДЕНЫ" if passed else f"ПРОВАЛЕНЫ (код {proc.returncode})")
         return passed, f"exit_code={proc.returncode}\n{tail}"
 
+    def _execute_test_step(
+        self, index: int, iteration: int
+    ) -> tuple[StepRecord, bool | None, str]:
+        """Шаг ``kind="test"``: прогнать тесты и оформить запись журнала.
+
+        Падение тестов — НЕ ошибка прогона (статус ``changes_requested``), а вход
+        для следующего шага доработки. Если ``--test-command`` не задана — шаг
+        пропускается без ошибки.
+        """
+        started = time.time()
+        if not self.test_command:
+            log.info("→ шаг %d: тесты пропущены (нет --test-command)", index)
+            record = StepRecord(
+                iteration=iteration, step_index=index, agent="test", role="test",
+                status=Status.OK.value, summary="тест-команда не задана — шаг пропущен",
+                notes="", commit=None, changed_files=[],
+                duration_s=round(time.time() - started, 2),
+            )
+            return record, None, ""
+
+        log.info("→ шаг %d: запуск тестов", index)
+        print("  TEST: запускаю тесты...", flush=True)
+        passed, output = self._run_tests()
+        print(f"  TEST: {'пройдены' if passed else 'провалены'}", flush=True)
+        record = StepRecord(
+            iteration=iteration, step_index=index, agent="test", role="test",
+            status=Status.OK.value if passed else Status.CHANGES_REQUESTED.value,
+            summary="тесты пройдены" if passed else "тесты провалены",
+            notes=output, commit=None, changed_files=[],
+            duration_s=round(time.time() - started, 2),
+        )
+        return record, passed, output
+
     # --------------------------------------------------------- основной цикл
 
     def run(self, objective: str) -> RunReport:
@@ -173,7 +219,15 @@ class Orchestrator:
                 for index, step in enumerate(self.pipeline, start=1):
                     if step.only_first_iteration and iteration > 1:
                         continue
-                    agent = self.agents[step.agent]
+
+                    # Шаг тестов: оркестратор сам гоняет команду, без модели.
+                    if step.kind == "test":
+                        record, tests_passed, test_output = self._execute_test_step(index, iteration)
+                        records.append(record)
+                        self._log_record(record)
+                        continue
+
+                    agent = self.agents[step.executor]
                     record = self._execute_step(
                         step, index, iteration, agent, objective,
                         history, review_notes, test_output, records,
@@ -184,12 +238,9 @@ class Orchestrator:
                             f"шаг {record.agent} ({record.role}) завершился ошибкой: {record.summary}"
                         )
 
-                    # Тесты — после шага доработки, чтобы их видел ревьюер.
-                    if step.role == "refine" and self.test_command:
-                        tests_passed, test_output = self._run_tests()
-
-                    if step.role == "review":
-                        review_notes = (records[-1].notes or records[-1].summary).strip()
+                    # Шаг-гейт решает, можно ли завершить прогон.
+                    if step.gate:
+                        review_notes = (record.notes or record.summary).strip()
                         if record.status == Status.APPROVED.value:
                             if self.test_command and tests_passed is False:
                                 review_notes += "\nРевью одобрено, но тесты падают — почини их."
@@ -264,7 +315,7 @@ class Orchestrator:
 
         log.info("→ шаг %d: %s (%s, режим %s)", index, agent.name, step.role, agent.mode)
         started = time.time()
-        print(f"  ⏳ {agent.name.upper()} работает...", flush=True)
+        print(f"  >> {agent.name.upper()} работает...", flush=True)
         try:
             result = agent.run(ctx, self.workspace)
         except Exception as exc:  # noqa: BLE001 — сбой агента не должен терять журнал
@@ -275,14 +326,14 @@ class Orchestrator:
                 raw=traceback.format_exc(),
             )
 
-        print(f"  ✓ {agent.name.upper()} завершил работу", flush=True)
+        print(f"  OK {agent.name.upper()} завершил работу", flush=True)
 
         # Передача файлов через оркестратор.
         if agent.mode == "api" and result.status is not Status.ERROR:
-            print(f"    → применяю файлы к диску...", flush=True)
+            print("    -> применяю файлы к диску...", flush=True)
             self.workspace.apply_changes(result.changes)        # манифест -> диск
         elif agent.mode == "filesystem":
-            print(f"    → снимаю изменения с диска...", flush=True)
+            print("    -> снимаю изменения с диска...", flush=True)
             result.changes = self.workspace.pending_changes()   # диск -> история
 
         commit = self.workspace.snapshot(

@@ -26,7 +26,7 @@
 | цикл итераций, запуск тестов, критерий завершения, журналы | [orchestrator/orchestrator.py](orchestrator/orchestrator.py) |
 | формат `AgentResult`/`FileChange`, парсер манифеста, валидацию путей | [orchestrator/protocol.py](orchestrator/protocol.py) |
 | файлы workspace, git-операции, экспорт контекста | [orchestrator/workspace.py](orchestrator/workspace.py) |
-| стандартный/мок-конвейер, загрузку JSON-конвейера | [orchestrator/pipelines.py](orchestrator/pipelines.py) |
+| стандартный конвейер (plan→implement→test→review), загрузку JSON-конвейера | [orchestrator/pipelines.py](orchestrator/pipelines.py) |
 | базовый интерфейс агента и сборку промпта | [orchestrator/agents/base.py](orchestrator/agents/base.py) |
 | адаптер Gemini (REST, JSON-ответ, ретраи) | [orchestrator/agents/gemini.py](orchestrator/agents/gemini.py) |
 | адаптер Claude Code (headless CLI) | [orchestrator/agents/claude_code.py](orchestrator/agents/claude_code.py) |

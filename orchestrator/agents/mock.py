@@ -1,15 +1,15 @@
 """Мок-агенты: проверка всего контура оркестрации без API-ключей и CLI.
 
-Сценарий мок-прогона повторяет реальный конвейер:
+Два исполнителя по типу (как и в бою), поведение зависит от роли шага:
 
-* ``MockGenerator`` (api-режим, имитация Gemini) — генерирует калькулятор
-  с намеренной ошибкой и тестами, возвращая JSON-манифест;
-* ``MockRefiner`` (filesystem-режим, имитация Claude Code) — правит реальные
-  файлы на диске: чинит баг, а на следующей итерации отрабатывает
-  замечания ревью (добавляет multiply);
-* ``MockReviewer`` (api-режим, имитация Gemini-ревью) — на первой итерации
-  требует доработку, на второй ставит approved.
+* ``MockApiAgent`` (api-режим, имитация Gemini) — на роли ``plan`` пишет
+  PLAN.md, на роли ``review`` сперва требует доработку (нет multiply), затем
+  ставит approved;
+* ``MockClaudeAgent`` (filesystem-режим, имитация Claude Code) — на роли
+  ``implement`` создаёт calculator с намеренным багом и тесты, дальше чинит
+  баг и по замечаниям ревью добавляет multiply.
 
+Стандартный конвейер на мок-агентах: plan → implement → test → review.
 Запуск: ``python -m orchestrator.cli --workspace ./demo --mock``
 """
 from __future__ import annotations
@@ -17,7 +17,7 @@ from __future__ import annotations
 from ..protocol import Action, AgentResult, FileChange, Status
 from .base import BaseAgent, StepContext, build_prompt
 
-CALCULATOR_BUGGY = '''"""Простой калькулятор (сгенерирован MockGenerator)."""
+CALCULATOR_BUGGY = '''"""Простой калькулятор (сгенерирован мок-конвейером)."""
 
 
 def add(a: float, b: float) -> float:
@@ -60,36 +60,92 @@ class MultiplyTest(unittest.TestCase):
 '''
 
 
-class MockGenerator(BaseAgent):
-    """Имитация Gemini-генератора: возвращает манифест новых файлов."""
+def _read_or_none(workspace, rel: str) -> str | None:
+    try:
+        return workspace.read(rel)
+    except FileNotFoundError:
+        return None
 
-    name = "mock_gemini"
+
+class MockApiAgent(BaseAgent):
+    """Имитация api-исполнителя (Gemini). Поведение зависит от роли шага.
+
+    * ``plan``   — пишет PLAN.md (status=ok);
+    * ``review`` — сперва требует доработку (нет multiply), затем approved;
+    * иначе      — генерирует первичный calculator (легаси-режим generate).
+    """
+
+    name = "mock_api"
     mode = "api"
 
     def run(self, ctx: StepContext, workspace) -> AgentResult:
+        prompt = build_prompt(ctx, include_files=True)
+
+        if ctx.role == "plan":
+            plan = (
+                "# План\n\n"
+                "1. calculator.py — функции add, subtract, multiply.\n"
+                "2. test_calculator.py — unit-тесты на каждую функцию.\n"
+                "3. README.md — краткое описание.\n"
+            )
+            return AgentResult(
+                agent=self.name, status=Status.OK,
+                summary="Составлен план реализации калькулятора (PLAN.md).",
+                changes=[FileChange("PLAN.md", Action.CREATE, plan)],
+                prompt=prompt, raw="(mock plan)",
+            )
+
+        if ctx.role == "review":
+            source = _read_or_none(workspace, "calculator.py") or ""
+            if "def multiply" not in source:
+                return AgentResult(
+                    agent=self.name, status=Status.CHANGES_REQUESTED,
+                    summary="Базовая функциональность есть, но задача закрыта не полностью.",
+                    notes="Добавьте функцию multiply(a, b) и тест на неё.",
+                    prompt=prompt, raw="(mock review)",
+                )
+            return AgentResult(
+                agent=self.name, status=Status.APPROVED,
+                summary="Все требования выполнены, тесты на месте. Одобрено.",
+                prompt=prompt, raw="(mock review)",
+            )
+
+        # Легаси generate-режим (если конвейер использует роль generate).
         return AgentResult(
-            agent=self.name,
-            status=Status.OK,
+            agent=self.name, status=Status.OK,
             summary="Сгенерирован модуль calculator.py с тестами и README.",
             changes=[
                 FileChange("calculator.py", Action.CREATE, CALCULATOR_BUGGY),
                 FileChange("test_calculator.py", Action.CREATE, CALCULATOR_TESTS),
                 FileChange("README.md", Action.CREATE, "# Demo calculator\n\nСгенерировано мок-конвейером.\n"),
             ],
-            prompt=build_prompt(ctx, include_files=True),
-            raw="(mock manifest)",
+            prompt=prompt, raw="(mock manifest)",
         )
 
 
-class MockRefiner(BaseAgent):
-    """Имитация Claude Code: правит реальные файлы прямо в workspace."""
+class MockClaudeAgent(BaseAgent):
+    """Имитация claude-исполнителя (Claude Code): правит реальные файлы на диске.
 
-    name = "mock_claude_code"
+    Первый прогон (файла ещё нет) — создаёт calculator с намеренным багом и
+    тесты. Дальше — чинит баг и по замечаниям ревью добавляет multiply.
+    """
+
+    name = "mock_claude"
     mode = "filesystem"
 
     def run(self, ctx: StepContext, workspace) -> AgentResult:
+        prompt = build_prompt(ctx, include_files=False)
         actions: list[str] = []
-        source = workspace.read("calculator.py")
+        source = _read_or_none(workspace, "calculator.py")
+
+        if source is None:
+            workspace.write("calculator.py", CALCULATOR_BUGGY)
+            workspace.write("test_calculator.py", CALCULATOR_TESTS)
+            return AgentResult(
+                agent=self.name, status=Status.OK,
+                summary="Создан calculator.py (с намеренным багом в add) и тесты.",
+                prompt=prompt, raw="(mock filesystem edit)",
+            )
 
         if "a - b  # BUG" in source:
             source = source.replace(
@@ -107,39 +163,10 @@ class MockRefiner(BaseAgent):
 
         workspace.write("calculator.py", source)
         return AgentResult(
-            agent=self.name,
-            status=Status.OK,
+            agent=self.name, status=Status.OK,
             summary="; ".join(actions) or "изменения не потребовались",
-            prompt=build_prompt(ctx, include_files=False),
-            raw="(mock filesystem edit)",
+            prompt=prompt, raw="(mock filesystem edit)",
         )
 
 
-class MockReviewer(BaseAgent):
-    """Имитация Gemini-ревью: сперва запрашивает правки, затем одобряет."""
-
-    name = "mock_gemini_review"
-    mode = "api"
-
-    def run(self, ctx: StepContext, workspace) -> AgentResult:
-        prompt = build_prompt(ctx, include_files=True)
-        source = workspace.read("calculator.py")
-        if "def multiply" not in source:
-            return AgentResult(
-                agent=self.name,
-                status=Status.CHANGES_REQUESTED,
-                summary="Базовая функциональность есть, но задача закрыта не полностью.",
-                notes="Добавьте функцию multiply(a, b) и тест на неё.",
-                prompt=prompt,
-                raw="(mock review)",
-            )
-        return AgentResult(
-            agent=self.name,
-            status=Status.APPROVED,
-            summary="Все требования выполнены, тесты на месте. Одобрено.",
-            prompt=prompt,
-            raw="(mock review)",
-        )
-
-
-__all__ = ["MockGenerator", "MockRefiner", "MockReviewer"]
+__all__ = ["MockApiAgent", "MockClaudeAgent"]

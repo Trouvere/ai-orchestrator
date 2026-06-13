@@ -23,7 +23,7 @@ Claude Code CLI (для filesystem-агента): `npm install -g @anthropic-ai/
 python -m orchestrator.cli --workspace ./demo-mock --mock --verbose
 ```
 
-Результат: в `./demo-mock/` появится git-история всех шагов (generate → refine → тесты → review). Если она есть — контур исправен.
+Результат: в `./demo-mock/` появится git-история всех шагов (plan → implement → test → review). Если она есть — контур исправен.
 
 **2. Проверка ключа Gemini** (если планируете боевой запуск):
 
@@ -49,7 +49,7 @@ python -m orchestrator.cli \
 |---|---|---|
 | `--workspace` | каталог проекта (создаётся, если нет) | — |
 | `--objective` / `--objective-file` | задача текстом или из файла | — |
-| `--test-command` | команда тестов между итерациями | нет |
+| `--test-command` | команда для шага тестов (`kind=test`) | нет |
 | `--max-iterations` | лимит итераций | `3` |
 | `--pipeline` | свой JSON-конвейер вместо стандартного | стандартный |
 | `--gemini-model` | модель Gemini | `gemini-2.5-flash` |

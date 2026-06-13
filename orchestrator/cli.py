@@ -46,9 +46,9 @@ def load_dotenv(path: str | os.PathLike[str] = ".env") -> None:
 
 from .agents.claude_code import ClaudeCodeAgent
 from .agents.gemini import GeminiAgent
-from .agents.mock import MockGenerator, MockRefiner, MockReviewer
+from .agents.mock import MockApiAgent, MockClaudeAgent
 from .orchestrator import Orchestrator
-from .pipelines import default_pipeline, load_pipeline, mock_pipeline
+from .pipelines import default_pipeline, load_pipeline
 from .workspace import Workspace
 
 MOCK_OBJECTIVE = (
@@ -111,17 +111,16 @@ def main(argv: list[str] | None = None) -> int:
 
     workspace = Workspace(args.workspace)
 
+    # Реестр исполнителей по типу: "api" (модель через REST) и "claude" (CLI с ФС).
     if args.mock:
         agents = {
-            "generator": MockGenerator(),
-            "refiner": MockRefiner(),
-            "reviewer": MockReviewer(),
+            "api": MockApiAgent(),
+            "claude": MockClaudeAgent(),
         }
-        pipeline = load_pipeline(args.pipeline) if args.pipeline else mock_pipeline()
     else:
         agents = {
-            "gemini": GeminiAgent(model=args.gemini_model),
-            "claude_code": ClaudeCodeAgent(
+            "api": GeminiAgent(model=args.gemini_model),
+            "claude": ClaudeCodeAgent(
                 model=args.claude_model,
                 claude_cmd=args.claude_cmd,
                 permission_mode=args.claude_permission_mode,
@@ -129,7 +128,7 @@ def main(argv: list[str] | None = None) -> int:
                 bare=args.claude_bare,
             ),
         }
-        pipeline = load_pipeline(args.pipeline) if args.pipeline else default_pipeline()
+    pipeline = load_pipeline(args.pipeline) if args.pipeline else default_pipeline()
 
     orchestrator = Orchestrator(
         workspace=workspace,
