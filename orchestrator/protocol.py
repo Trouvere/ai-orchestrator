@@ -65,6 +65,7 @@ class AgentResult:
     summary: str
     changes: list[FileChange] = field(default_factory=list)
     notes: str = ""           # развёрнутые замечания (например, текст ревью)
+    prompt: str = ""          # запрос, отправленный модели — сохраняется в журнал
     raw: str = ""             # сырой ответ модели — сохраняется в журнал
     commit: str | None = None  # sha коммита, зафиксировавшего шаг
 

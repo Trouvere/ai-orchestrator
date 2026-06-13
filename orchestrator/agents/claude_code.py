@@ -136,6 +136,7 @@ class ClaudeCodeAgent(BaseAgent):
                 agent=self.name,
                 status=Status.ERROR,
                 summary=f"Claude Code не уложился в таймаут {self.timeout} с",
+                prompt=prompt,
             )
 
         text, is_error = self._final_text(proc.stdout)
@@ -146,6 +147,7 @@ class ClaudeCodeAgent(BaseAgent):
                 agent=self.name,
                 status=Status.ERROR,
                 summary=f"Claude Code завершился с ошибкой (код {proc.returncode}): {text[:300]}",
+                prompt=prompt,
                 raw=raw,
             )
 
@@ -163,7 +165,9 @@ class ClaudeCodeAgent(BaseAgent):
             pass  # агент не вернул структурированный итог — не критично
 
         # Изменения файлов оркестратор снимет с диска (git status) сам.
-        return AgentResult(agent=self.name, status=status, summary=summary, notes=notes, raw=raw)
+        return AgentResult(
+            agent=self.name, status=status, summary=summary, notes=notes, prompt=prompt, raw=raw
+        )
 
 
 __all__ = ["ClaudeCodeAgent"]

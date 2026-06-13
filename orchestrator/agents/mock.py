@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 from ..protocol import Action, AgentResult, FileChange, Status
-from .base import BaseAgent, StepContext
+from .base import BaseAgent, StepContext, build_prompt
 
 CALCULATOR_BUGGY = '''"""Простой калькулятор (сгенерирован MockGenerator)."""
 
@@ -76,6 +76,7 @@ class MockGenerator(BaseAgent):
                 FileChange("test_calculator.py", Action.CREATE, CALCULATOR_TESTS),
                 FileChange("README.md", Action.CREATE, "# Demo calculator\n\nСгенерировано мок-конвейером.\n"),
             ],
+            prompt=build_prompt(ctx, include_files=True),
             raw="(mock manifest)",
         )
 
@@ -109,6 +110,7 @@ class MockRefiner(BaseAgent):
             agent=self.name,
             status=Status.OK,
             summary="; ".join(actions) or "изменения не потребовались",
+            prompt=build_prompt(ctx, include_files=False),
             raw="(mock filesystem edit)",
         )
 
@@ -120,6 +122,7 @@ class MockReviewer(BaseAgent):
     mode = "api"
 
     def run(self, ctx: StepContext, workspace) -> AgentResult:
+        prompt = build_prompt(ctx, include_files=True)
         source = workspace.read("calculator.py")
         if "def multiply" not in source:
             return AgentResult(
@@ -127,12 +130,14 @@ class MockReviewer(BaseAgent):
                 status=Status.CHANGES_REQUESTED,
                 summary="Базовая функциональность есть, но задача закрыта не полностью.",
                 notes="Добавьте функцию multiply(a, b) и тест на неё.",
+                prompt=prompt,
                 raw="(mock review)",
             )
         return AgentResult(
             agent=self.name,
             status=Status.APPROVED,
             summary="Все требования выполнены, тесты на месте. Одобрено.",
+            prompt=prompt,
             raw="(mock review)",
         )
 

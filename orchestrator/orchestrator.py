@@ -106,11 +106,13 @@ class Orchestrator:
         with self._jsonl_path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(asdict(record), ensure_ascii=False) + "\n")
 
-    def _save_raw(self, record: StepRecord, raw: str) -> None:
-        if not raw:
-            return
-        name = f"iter{record.iteration}-step{record.step_index}-{record.agent}.txt"
-        (self._raw_dir / name).write_text(raw, encoding="utf-8")
+    def _save_io(self, record: StepRecord, prompt: str, response: str) -> None:
+        """Сохранить запрос и ответ шага в raw/ (каждый — отдельным файлом)."""
+        base = f"iter{record.iteration}-step{record.step_index}-{record.agent}"
+        if prompt:
+            (self._raw_dir / f"{base}.request.txt").write_text(prompt, encoding="utf-8")
+        if response:
+            (self._raw_dir / f"{base}.response.txt").write_text(response, encoding="utf-8")
 
     def _run_tests(self) -> tuple[bool, str]:
         assert self.test_command
@@ -310,7 +312,7 @@ class Orchestrator:
                 "summary": record.summary[:300],
             }
         )
-        self._save_raw(record, result.raw)
+        self._save_io(record, result.prompt, result.raw)
         self._log_record(record)
         log.info(
             "   статус=%s | файлов изменено: %d | commit=%s | %.1f с — %s",

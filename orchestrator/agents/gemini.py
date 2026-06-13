@@ -116,10 +116,10 @@ class GeminiAgent(BaseAgent):
         from ..protocol import MANIFEST_SCHEMA_HINT  # локальный импорт против циклов
 
         prompt = build_prompt(ctx, include_files=True)
+        system_text = self.system_prompt + "\n\n" + MANIFEST_SCHEMA_HINT
+        full_request = system_text + "\n\n=== ЗАДАЧА (user) ===\n" + prompt
         payload = {
-            "systemInstruction": {
-                "parts": [{"text": self.system_prompt + "\n\n" + MANIFEST_SCHEMA_HINT}]
-            },
+            "systemInstruction": {"parts": [{"text": system_text}]},
             "contents": [{"role": "user", "parts": [{"text": prompt}]}],
             "generationConfig": {
                 "temperature": self.temperature,
@@ -130,14 +130,16 @@ class GeminiAgent(BaseAgent):
         data = self._request(payload)
         text = self._extract_text(data)
         try:
-            return parse_manifest(self.name, text)
+            result = parse_manifest(self.name, text)
         except ValueError as exc:
-            return AgentResult(
+            result = AgentResult(
                 agent=self.name,
                 status=Status.ERROR,
                 summary=f"не удалось разобрать манифест Gemini: {exc}",
                 raw=text,
             )
+        result.prompt = full_request
+        return result
 
 
 __all__ = ["GeminiAgent"]
