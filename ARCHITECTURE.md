@@ -26,40 +26,26 @@ flowchart TB
     O <--> WS
 ```
 
-## Компоненты системы
-
-| Модуль | Назначение |
-|---|---|
-| **orchestrator/workspace.py** | Общее рабочее пространство: файлы проекта + git-версионирование, безопасное применение манифестов, экспорт содержимого в контекст моделей |
-| **orchestrator/protocol.py** | Единый протокол обмена: `AgentResult`, `FileChange`, JSON-манифест, устойчивый парсер ответов моделей, защита путей |
-| **orchestrator/agents/base.py** | Интерфейс `BaseAgent` (режимы `api` / `filesystem`) и единый сборщик контекстного промпта |
-| **orchestrator/agents/gemini.py** | Адаптер Gemini: REST `generateContent`, принудительный JSON-ответ, ретраи |
-| **orchestrator/agents/claude_code.py** | Адаптер Claude Code: headless-запуск CLI (`claude -p … --output-format json`) прямо в workspace |
-| **orchestrator/orchestrator.py** | Ядро: цикл итераций, фиксация версий, запуск тестов, журналирование, критерий завершения |
-| **orchestrator/pipelines.py** | Стандартный конвейер и загрузка пользовательского из JSON |
-| **orchestrator/agents/mock.py** | Мок-агенты для офлайн-проверки всего контура без ключей и CLI |
-
 ## Структура проекта
 
 ```
 ai-orchestrator/
 ├── orchestrator/                          # Основной пакет оркестратора
 │   ├── __init__.py                        # Инициализация пакета
-│   ├── cli.py                             # CLI-точка входа (argparse, запуск конвейера)
-│   ├── orchestrator.py                    # Ядро: цикл итераций, управление git, запуск тестов
-│   ├── workspace.py                       # Управление рабочим пространством, git-операции
-│   ├── protocol.py                        # Протокол обмена (AgentResult, FileChange, парсер манифестов)
-│   ├── pipelines.py                       # Загрузка и выполнение конвейеров из JSON
+│   ├── cli.py                             # CLI-точка входа: argparse, загрузка .env, создание workspace, запуск конвейера
+│   ├── orchestrator.py                    # Ядро: чередование агентов → запуск тестов → фиксация версий в git, журналы, критерий завершения
+│   ├── workspace.py                       # Файлы проекта, git-операции, безопасное применение манифестов, экспорт контекста
+│   ├── protocol.py                        # AgentResult, FileChange, валидация путей, парсер JSON-манифестов
+│   ├── pipelines.py                       # Загрузка JSON-конвейера, интерпретация ролей агентов, логика завершения
 │   └── agents/                            # Адаптеры для различных AI-моделей
 │       ├── __init__.py
-│       ├── base.py                        # Базовый интерфейс BaseAgent и сборщик промптов
-│       ├── gemini.py                      # Адаптер Gemini API (REST, JSON-ответы)
-│       ├── claude_code.py                 # Адаптер Claude Code (headless CLI запуск)
-│       └── mock.py                        # Мок-агенты для офлайн-тестирования
+│       ├── base.py                        # Базовый интерфейс BaseAgent и сборщик контекстного промпта
+│       ├── gemini.py                      # Адаптер Gemini API (REST generateContent, принудительный JSON, ретраи)
+│       ├── claude_code.py                 # Адаптер Claude Code (headless CLI, захват изменений через git)
+│       └── mock.py                        # Мок-агенты для офлайн-тестирования без ключей и CLI
 │
 ├── scripts/                               # Вспомогательные скрипты
-│   ├── __init__.py
-│   └── check_gemini_key.py                # Проверка рабочего состояния Gemini API ключа
+│   └── check_gemini_key.py                # Проверка валидности Gemini API ключа
 │
 ├── examples/                              # Примеры использования
 │   └── pipeline.example.json              # Пример пользовательского конвейера
@@ -85,28 +71,13 @@ ai-orchestrator/
 │   └── ...                                # Дополнительные demo-проекты по мере необходимости
 │
 ├── .gitignore                             # Git исключения (workspaces/, __pycache__, .env и т.д.)
+├── .env.example                           # Шаблон .env: GEMINI_API_KEY (или GOOGLE_API_KEY)
+├── AGENTS.md                              # Навигация по репозиторию для AI-агента: карта кода, команды, инварианты
 ├── ARCHITECTURE.md                        # Этот файл (подробная архитектура)
 ├── EXAMPLES.md                            # Примеры команд запуска оркестратора
 ├── README.md                              # Основная документация (быстрый старт)
-└── requirements.txt                       # Зависимости проекта (для разработки)
+└── pyproject.toml                         # Метаданные пакета, Python ≥ 3.10, dependencies = [], entry point ai-orchestrator
 ```
-
-### Описание ключевых файлов
-
-| Файл/Папка | Назначение |
-|---|---|
-| **orchestrator/cli.py** | CLI-интерфейс: парсинг аргументов, создание workspace, запуск конвейера |
-| **orchestrator/orchestrator.py** | Главный цикл: чередование агентов → проверка тестов → фиксация версий в git |
-| **orchestrator/workspace.py** | Управление файлами проекта, git-операции, безопасное применение манифестов |
-| **orchestrator/protocol.py** | Структуры данных (AgentResult, FileChange), валидация путей, парсер JSON-манифестов |
-| **orchestrator/pipelines.py** | Загрузка JSON-конвейера, интерпретация ролей агентов, логика завершения |
-| **orchestrator/agents/base.py** | Базовый класс Agent, сборка контекстного промпта, общая логика для всех адаптеров |
-| **orchestrator/agents/gemini.py** | Интеграция с Google Gemini API, отправка промптов, принудительный JSON-ответ |
-| **orchestrator/agents/claude_code.py** | Headless запуск Claude Code CLI, захват изменений файлов через git |
-| **orchestrator/agents/mock.py** | Мок-реализации для офлайн-тестирования без API ключей и CLI |
-| **scripts/check_gemini_key.py** | Утилита для проверки валидности Gemini API ключа |
-| **workspaces/** | Папка с независимыми git-репозиториями для demo-проектов; полностью исключена из основного репо |
-| **.orchestrator/** | Служебная папка внутри workspace: логи, отчёты, сырые ответы моделей; исключена из git |
 
 ## Протокол обмена файлами
 
