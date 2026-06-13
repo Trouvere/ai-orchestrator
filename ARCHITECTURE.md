@@ -106,13 +106,15 @@ ai-orchestrator/
 
 ## Версионирование и аудит
 
-Каждый шаг любого агента фиксируется git-коммитом вида `[iter 2/refine/claude_code] <summary>`. Это даёт:
+При первом обращении к workspace оркестратор инициализирует его: `git init` (если репозитория ещё нет), задаёт локальную идентичность коммитов (`AI Orchestrator <orchestrator@local>`), создаёт `.gitignore` (если его нет; в него попадают `.orchestrator/`, `__pycache__/`, `*.pyc`, `.venv/`, `node_modules/`) и делает стартовый пустой коммит `[orchestrator] init workspace`.
+
+Каждый последующий шаг любого агента фиксируется git-коммитом вида `[iter 2/refine/claude_code] <summary>` (текст `summary` обрезается до 72 символов). Это даёт:
 
 * полную историю «кто что изменил» (`git log`, `git diff <commit_a> <commit_b>`);
 * откат к любому ходу (`git checkout <sha> -- .`);
 * передачу следующему агенту гарантированно актуального состояния.
 
-Дополнительно в `<workspace>/.orchestrator/` пишутся: пошаговый журнал `run-*.jsonl`, итоговый `report.json` и сырые ответы моделей в `raw/` (для отладки промптов). Каталог исключён из git.
+Дополнительно в `<workspace>/.orchestrator/` пишутся: пошаговый журнал `run-*.jsonl`, итоговый `report.json`, сырые ответы моделей в `raw/` (для отладки промптов) и текущий промпт Claude Code `current_prompt.txt`. Каталог исключён из git (через автосозданный `.gitignore`).
 
 ### Артефакты оркестратора (.orchestrator/)
 
@@ -122,6 +124,7 @@ ai-orchestrator/
 <workspace>/.orchestrator/
 ├── run-YYYYMMDD-HHMMSS.jsonl              # Пошаговый журнал в JSONL формате
 ├── report.json                            # Итоговый отчёт (статус, итерации, ошибки)
+├── current_prompt.txt                     # Последний промпт, переданный Claude Code (перезаписывается)
 └── raw/                                   # Сырые ответы моделей для отладки
     ├── iter1-step1-gemini.txt
     ├── iter1-step2-claude_code.txt
