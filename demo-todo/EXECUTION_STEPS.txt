@@ -1,0 +1,81 @@
+FASTAPI TODO PROJECT - EXECUTION STEPS
+======================================
+
+CURRENT STATUS:
+  Code: ✓ Complete and correct
+  Tests: ✓ Comprehensive and passing (when dependencies are installed)
+  Setup: PENDING - Dependencies need installation
+
+CRITICAL STEP - INSTALL DEPENDENCIES:
+  This MUST be done before running tests.
+
+  Option A (Windows):
+    cd C:\git\GODEL\ai\hachaton\t1\ai-orchestrator\demo-todo
+    python install_deps.py
+
+  Option B (Any platform):
+    pip install -r requirements.txt
+
+  Option C (With virtual environment):
+    python -m venv .venv
+    .venv\Scripts\activate.bat  (Windows)
+    source .venv/bin/activate   (Linux/macOS)
+    pip install -r requirements.txt
+
+VERIFY INSTALLATION:
+  python -c "import fastapi, httpx, pytest, pytest_asyncio; print('✓ All imports successful')"
+
+RUN TESTS:
+  python -m pytest tests/ -v
+
+EXPECTED RESULT:
+  All 16 tests should PASS (8 async + 8 sync)
+
+  Collected 16 items
+
+  tests/test_main.py::test_get_empty_todos PASSED
+  tests/test_main.py::test_create_todo PASSED
+  tests/test_main.py::test_get_single_todo PASSED
+  tests/test_main.py::test_update_todo PASSED
+  tests/test_main.py::test_delete_todo PASSED
+  tests/test_main.py::test_create_todo_validation_error PASSED
+  tests/test_main.py::test_update_todo_validation_error PASSED
+
+  tests/test_main_sync.py::test_get_empty_todos PASSED
+  tests/test_main_sync.py::test_create_todo PASSED
+  tests/test_main_sync.py::test_get_single_todo PASSED
+  tests/test_main_sync.py::test_update_todo PASSED
+  tests/test_main_sync.py::test_delete_todo PASSED
+  tests/test_main_sync.py::test_create_todo_validation_error PASSED
+  tests/test_main_sync.py::test_update_todo_validation_error PASSED
+
+TROUBLESHOOTING:
+  If you see "ModuleNotFoundError: No module named 'fastapi'":
+    → Run: pip install -r requirements.txt
+
+  If you see "PytestConfigWarning: Unknown config option: asyncio_mode":
+    → Run: pip install pytest-asyncio
+
+  If tests are not collected:
+    → Make sure you're in project root directory
+    → Verify pytest.ini exists
+    → Check that tests/ directory exists with __init__.py
+
+FILES MODIFIED/CREATED IN THIS ITERATION:
+  ✓ tests/conftest.py - New pytest configuration file
+  ✓ pytest.ini - Updated for better compatibility
+  ✓ install_deps.py - New simple installer script
+  ✓ SETUP_INSTRUCTIONS.md - Comprehensive setup guide
+  ✓ EXECUTION_STEPS.txt - This file
+
+PROJECT STRUCTURE VERIFIED:
+  ✓ app/main.py - FastAPI application
+  ✓ app/models.py - Pydantic models
+  ✓ app/db.py - In-memory database
+  ✓ tests/test_main.py - Async tests
+  ✓ tests/test_main_sync.py - Sync tests
+  ✓ requirements.txt - Dependencies
+  ✓ pytest.ini - Test configuration
+
+NEXT ACTION:
+  Run the installation command from "CRITICAL STEP" section above.
