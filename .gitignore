@@ -11,12 +11,19 @@ __pycache__/
 build/
 dist/
 
-# # virtual environments
-# .venv/
-# venv/
+# virtual environments
+.venv/
+venv/
 
-# # orchestrator artifacts
-# .orchestrator/
+# orchestrator artifacts
+.orchestrator/
+
+# workspaces with independent git repos
+workspaces/
 
 # node
 node_modules/
+
+# logs
+*.log
+run.log

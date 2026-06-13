@@ -4,7 +4,7 @@
 
 ```bash
 python -m orchestrator.cli \
-    --workspace ./demo-todo \
+    --workspace ./workspaces/todo \
     --objective "Создай FastAPI приложение с REST API для управления TODO-списком. Endpoints: GET /todos, POST /todos, PUT /todos/{id}, DELETE /todos/{id}. Используй Pydantic для моделей. Напиши тесты с pytest." \
     --test-command "python -m pytest -v" \
     --max-iterations 4
@@ -14,7 +14,7 @@ python -m orchestrator.cli \
 
 ```bash
 python -m orchestrator.cli \
-    --workspace ./demo-math \
+    --workspace ./workspaces/math \
     --objective "Создай Python-модуль с функцией fibonacci(n). Добавь юнит-тесты." \
     --test-command "python -m pytest tests/ -q" \
     --max-iterations 3
@@ -24,7 +24,7 @@ python -m orchestrator.cli \
 
 ```bash
 python -m orchestrator.cli \
-    --workspace ./demo-cli \
+    --workspace ./workspaces/cli \
     --objective "Создай CLI-утилиту на Click для конвертации текста: --uppercase, --lowercase, --reverse. Добавь help и тесты." \
     --test-command "python -m pytest -q" \
     --max-iterations 3
@@ -34,7 +34,7 @@ python -m orchestrator.cli \
 
 ```bash
 python -m orchestrator.cli \
-    --workspace ./demo-mock \
+    --workspace ./workspaces/mock \
     --objective "Создай простой REST API" \
     --mock \
     --verbose
@@ -53,7 +53,7 @@ python -m scripts.check_gemini_key --model gemini-2.5-pro
 
 ```powershell
 python -m orchestrator.cli `
-    --workspace ./demo-todo `
+    --workspace ./workspaces/todo `
     --objective "Создай FastAPI приложение с REST API для управления TODO-списком. Endpoints: GET /todos, POST /todos, PUT /todos/{id}, DELETE /todos/{id}. Используй Pydantic для моделей. Напиши тесты с pytest." `
     --test-command "python -m pytest -v" `
     --max-iterations 4
@@ -62,5 +62,5 @@ python -m orchestrator.cli `
 Или как одну строку:
 
 ```powershell
-python -m orchestrator.cli --workspace ./demo-todo --objective "Создай FastAPI приложение с REST API для управления TODO-списком" --test-command "python -m pytest -v" --max-iterations 4
+python -m orchestrator.cli --workspace ./workspaces/todo --objective "Создай FastAPI приложение с REST API для управления TODO-списком" --test-command "python -m pytest -v" --max-iterations 4
 ```
