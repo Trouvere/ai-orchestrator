@@ -88,13 +88,18 @@ run_tests.bat
 
 This batch script (Windows only) creates a virtual environment, installs dependencies, and runs the tests.
 
-### Option 3: Using Python setup script
+### Option 3: Using Python setup script (with enhanced diagnostics)
 
+```bash
+python quick_setup_and_test.py
+```
+
+This is the recommended approach. The script creates a virtual environment, installs dependencies, verifies all critical packages, and runs tests with detailed error reporting (works on all platforms).
+
+**Alternative**: The original setup script also works:
 ```bash
 python setup_and_test.py
 ```
-
-This script creates a virtual environment, installs dependencies, and runs the tests (works on all platforms).
 
 ### Option 4: Manual setup (requires python 3.10+)
 

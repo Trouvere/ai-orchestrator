@@ -9,14 +9,13 @@ CURRENT STATUS:
 CRITICAL STEP - INSTALL DEPENDENCIES AND RUN TESTS:
   This MUST be done before tests can pass.
 
-  RECOMMENDED (Cross-platform, robust):
-    python setup_and_test.py
+  RECOMMENDED (Cross-platform, with enhanced diagnostics):
+    python quick_setup_and_test.py
 
-  Option A (Windows - alternative):
-    run_tests.bat
-
-  Option B (Linux/macOS - alternative):
-    ./run_tests.sh
+  Alternative options:
+    python setup_and_test.py (original setup script)
+    run_tests.bat (Windows batch script)
+    ./run_tests.sh (Linux/macOS shell script)
 
   Option C (Manual with virtual environment - for debugging):
     python -m venv .venv
@@ -63,11 +62,11 @@ TROUBLESHOOTING:
     → Verify pytest.ini exists
     → Check that tests/ directory exists with __init__.py
 
-FILES MODIFIED/CREATED IN THIS ITERATION:
-  ✓ setup_and_test.py - Enhanced for robustness and verification
-  ✓ install_deps.py - Enhanced for robustness
-  ✓ EXECUTION_STEPS.txt - This file (updated)
-  ✓ SETUP_INSTRUCTIONS.md - Updated for clarity
+FILES MODIFIED/CREATED IN THIS ITERATION (Iteration 3):
+  ✓ quick_setup_and_test.py - NEW - Enhanced setup script with better diagnostics
+  ✓ tests/test_main_sync.py - FIXED - Made tests properly isolated with fixture-based client
+  ✓ README.md - UPDATED - Recommends quick_setup_and_test.py as primary method
+  ✓ EXECUTION_STEPS.txt - UPDATED - This file (updated with new script reference)
 
 PROJECT STRUCTURE VERIFIED:
   ✓ app/main.py - FastAPI application

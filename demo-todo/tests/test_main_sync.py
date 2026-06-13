@@ -4,16 +4,19 @@ import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 
-client = TestClient(app)
+
+@pytest.fixture
+def client():
+    return TestClient(app)
 
 
-def test_get_empty_todos():
+def test_get_empty_todos(client):
     response = client.get("/todos")
     assert response.status_code == 200
     assert response.json() == []
 
 
-def test_create_todo():
+def test_create_todo(client):
     response = client.post(
         "/todos",
         json={"title": "Buy groceries", "description": "Milk, Eggs, Bread"}
@@ -32,7 +35,7 @@ def test_create_todo():
     assert response.json()[0]["title"] == "Buy groceries"
 
 
-def test_get_single_todo():
+def test_get_single_todo(client):
     # First create a todo
     post_response = client.post(
         "/todos",
@@ -54,7 +57,7 @@ def test_get_single_todo():
     assert not_found_response.json() == {"detail": "Todo not found"}
 
 
-def test_update_todo():
+def test_update_todo(client):
     # Create a todo
     post_response = client.post(
         "/todos",
@@ -102,7 +105,7 @@ def test_update_todo():
     assert not_found_response.json() == {"detail": "Todo not found"}
 
 
-def test_delete_todo():
+def test_delete_todo(client):
     # Create a todo
     post_response = client.post(
         "/todos",
@@ -124,7 +127,7 @@ def test_delete_todo():
     assert not_found_response.json() == {"detail": "Todo not found"}
 
 
-def test_create_todo_validation_error():
+def test_create_todo_validation_error(client):
     # Empty title
     response = client.post(
         "/todos",
@@ -140,7 +143,7 @@ def test_create_todo_validation_error():
     assert response.status_code == 422
 
 
-def test_update_todo_validation_error():
+def test_update_todo_validation_error(client):
     # Create a todo
     post_response = client.post(
         "/todos",
