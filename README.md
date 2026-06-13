@@ -1,303 +1,174 @@
 # AI-оркестратор: совместная разработка несколькими LLM
 
-Оркестратор координирует работу нескольких AI-моделей (Gemini и Claude Code) в едином процессе разработки. Ключевая идея: модели обмениваются не сообщениями, а **реальными файлами и структурой проекта** в общем рабочем пространстве, а оркестратор выступает единственным посредником — управляет передачей файлов, версиями изменений и последовательностью шагов.
+Многомодельный оркестратор для автоматизированной разработки: координирует Gemini и Claude Code через общее рабочее пространство с git-версионированием.
 
-Зависимостей нет — только стандартная библиотека Python ≥ 3.10 и установленный `git`.
+**Зависимостей нет** — только Python ≥ 3.10 и `git`.
 
-## Структура проекта
+## 📋 Оглавление
 
-```
-ai-orchestrator/
-├── orchestrator/                          # Основной пакет оркестратора
-│   ├── __init__.py                        # Инициализация пакета
-│   ├── cli.py                             # CLI-точка входа (argparse, запуск конвейера)
-│   ├── orchestrator.py                    # Ядро: цикл итераций, управление git, запуск тестов
-│   ├── workspace.py                       # Управление рабочим пространством, git-операции
-│   ├── protocol.py                        # Протокол обмена (AgentResult, FileChange, парсер манифестов)
-│   ├── pipelines.py                       # Загрузка и выполнение конвейеров из JSON
-│   └── agents/                            # Адаптеры для различных AI-моделей
-│       ├── __init__.py
-│       ├── base.py                        # Базовый интерфейс BaseAgent и сборщик промптов
-│       ├── gemini.py                      # Адаптер Gemini API (REST, JSON-ответы)
-│       ├── claude_code.py                 # Адаптер Claude Code (headless CLI запуск)
-│       └── mock.py                        # Мок-агенты для офлайн-тестирования
-│
-├── scripts/                               # Вспомогательные скрипты
-│   ├── __init__.py
-│   └── check_gemini_key.py                # Проверка рабочего состояния Gemini API ключа
-│
-├── examples/                              # Примеры использования
-│   └── pipeline.example.json              # Пример пользовательского конвейера
-│
-├── workspaces/                            # Демонстрационные проекты (исключены из git)
-│   ├── todo/                              # Demo: FastAPI TODO приложение
-│   │   ├── .git/                          # Независимый git репозиторий
-│   │   ├── app/                           # Исходный код приложения
-│   │   ├── tests/                         # Тесты
-│   │   ├── .orchestrator/                 # Артефакты оркестратора (журналы, ответы)
-│   │   ├── README.md                      # Описание демо-проекта
-│   │   ├── requirements.txt                # Зависимости Python
-│   │   └── ...
-│   │
-│   ├── mock/                              # Demo: Мок-проект для офлайн-проверки
-│   │   ├── .git/                          # Независимый git репозиторий
-│   │   ├── calculator.py                  # Простой модуль-пример
-│   │   ├── test_calculator.py             # Тесты к модулю
-│   │   ├── .orchestrator/                 # Артефакты оркестратора
-│   │   ├── README.md                      # Описание демо-проекта
-│   │   └── ...
-│   │
-│   └── ...                                # Дополнительные demo-проекты по мере необходимости
-│
-├── .gitignore                             # Git исключения (workspaces/, __pycache__, .env и т.д.)
-├── EXAMPLES.md                            # Примеры команд запуска оркестратора
-├── README.md                              # Этот файл
-└── requirements.txt                       # Зависимости проекта (для разработки)
-```
+- [Быстрый старт](#быстрый-старт)
+- [Требования](#требования)
+- [Установка](#установка)
+- [Первый запуск](#первый-запуск)
+- [Ограничения и безопасность](#ограничения-и-безопасность)
+- [Подробно](#подробно)
 
-### Описание ключевых компонентов
+## 🚀 Быстрый старт
 
-| Файл/Папка | Назначение |
-|---|---|
-| **orchestrator/cli.py** | CLI-интерфейс: парсинг аргументов, создание workspace, запуск конвейера |
-| **orchestrator/orchestrator.py** | Главный цикл: чередование агентов → проверка тестов → фиксация версий в git |
-| **orchestrator/workspace.py** | Управление файлами проекта, git-операции, безопасное применение манифестов |
-| **orchestrator/protocol.py** | Структуры данных (AgentResult, FileChange), валидация путей, парсер JSON-манифестов |
-| **orchestrator/pipelines.py** | Загрузка JSON-конвейера, интерпретация ролей агентов, логика завершения |
-| **orchestrator/agents/base.py** | Базовый класс Agent, сборка контекстного промпта, общая логика для всех адаптеров |
-| **orchestrator/agents/gemini.py** | Интеграция с Google Gemini API, отправка промптов, принудительный JSON-ответ |
-| **orchestrator/agents/claude_code.py** | Headless запуск Claude Code CLI, захват изменений файлов через git |
-| **orchestrator/agents/mock.py** | Мок-реализации для офлайн-тестирования без API ключей и CLI |
-| **scripts/check_gemini_key.py** | Утилита для проверки валидности Gemini API ключа |
-| **workspaces/** | Папка с независимыми git-репозиториями для demo-проектов; полностью исключена из основного репо |
-| **.orchestrator/** | Служебная папка внутри workspace: логи, отчёты, сырые ответы моделей; исключена из git |
-
-### Артефакты оркестратора (.orchestrator/)
-
-При каждом запуске в `<workspace>/.orchestrator/` создаются:
-
-```
-<workspace>/.orchestrator/
-├── run-YYYYMMDD-HHMMSS.jsonl              # Пошаговый журнал в JSONL формате
-├── report.json                            # Итоговый отчёт (статус, итерации, ошибки)
-└── raw/                                   # Сырые ответы моделей для отладки
-    ├── iter1-step1-gemini.txt
-    ├── iter1-step2-claude_code.txt
-    └── ...
-```
-
-## Архитектура
-
-```mermaid
-flowchart TB
-    U[Задача пользователя] --> O
-
-    subgraph O[Оркестратор — единый посредник]
-        P[Конвейер шагов<br/>generate → refine → review] --> C[Сборка контекста шага:<br/>задача · история · файлы ·<br/>замечания ревью · вывод тестов]
-    end
-
-    subgraph WS[Общее рабочее пространство]
-        F[(Реальные файлы проекта)] --- G[(git: версия на каждый шаг)]
-    end
-
-    O <-->|"сериализация файлов → промпт<br/>JSON-манифест → материализация на диск"| GM[Gemini API<br/>режим api]
-    O -->|headless-запуск в каталоге проекта| CC[Claude Code<br/>режим filesystem]
-    CC -->|прямое чтение и правка файлов| F
-    O <--> WS
-```
-
-Компоненты:
-
-| Модуль | Назначение |
-|---|---|
-| `orchestrator/workspace.py` | Общее рабочее пространство: файлы проекта + git-версионирование, безопасное применение манифестов, экспорт содержимого в контекст моделей |
-| `orchestrator/protocol.py` | Единый протокол обмена: `AgentResult`, `FileChange`, JSON-манифест, устойчивый парсер ответов моделей, защита путей |
-| `orchestrator/agents/base.py` | Интерфейс `BaseAgent` (режимы `api` / `filesystem`) и единый сборщик контекстного промпта |
-| `orchestrator/agents/gemini.py` | Адаптер Gemini: REST `generateContent`, принудительный JSON-ответ, ретраи |
-| `orchestrator/agents/claude_code.py` | Адаптер Claude Code: headless-запуск CLI (`claude -p … --output-format json`) прямо в workspace |
-| `orchestrator/orchestrator.py` | Ядро: цикл итераций, фиксация версий, запуск тестов, журналирование, критерий завершения |
-| `orchestrator/pipelines.py` | Стандартный конвейер и загрузка пользовательского из JSON |
-| `orchestrator/agents/mock.py` | Мок-агенты для офлайн-проверки всего контура без ключей и CLI |
-
-## Как происходит обмен файлами
-
-Принципиально различаются два режима интеграции, но снаружи оба сводятся к единому формату `AgentResult` со списком `FileChange`:
-
-**Gemini (режим `api`).** Модель не видит файловую систему, поэтому оркестратор сериализует реальные файлы workspace в промпт (структура проекта + полное содержимое, с лимитами на объём), а от модели требует строгий JSON-манифест:
-
-```json
-{
-  "summary": "что сделано",
-  "status": "ok | approved | changes_requested",
-  "notes": "замечания / план",
-  "files": [
-    {"path": "src/app.py", "action": "create|update|delete", "content": "полное содержимое"}
-  ]
-}
-```
-
-Манифест проверяется (запрещены абсолютные пути, `..`, запись в `.git` и `.orchestrator`) и **материализуется в реальные файлы** на диске. Формат ответа дополнительно фиксируется через `responseMimeType: application/json`.
-
-**Claude Code (режим `filesystem`).** Агент с нативным доступом к файлам запускается в headless-режиме прямо в каталоге workspace и редактирует проект напрямую — это и есть «обмен через реальные файлы». После завершения оркестратор снимает фактические изменения через `git status` и включает их в общую историю.
-
-## Версионирование и аудит
-
-Каждый шаг любого агента фиксируется git-коммитом вида `[iter 2/refine/claude_code] <summary>`. Это даёт:
-
-* полную историю «кто что изменил» (`git log`, `git diff <commit_a> <commit_b>`);
-* откат к любому ходу (`git checkout <sha> -- .`);
-* передачу следующему агенту гарантированно актуального состояния.
-
-Дополнительно в `<workspace>/.orchestrator/` пишутся: пошаговый журнал `run-*.jsonl`, итоговый `report.json` и сырые ответы моделей в `raw/` (для отладки промптов). Каталог исключён из git.
-
-## Цикл выполнения
-
-Стандартный конвейер повторяет целевой сценарий:
-
-```
-итерация 1:  Gemini (generate) → Claude Code (refine) → [тесты] → Gemini (review)
-итерации 2+:                     Claude Code (refine) → [тесты] → Gemini (review)
-```
-
-Замечания ревью (`notes` при `changes_requested`) и вывод тестов автоматически попадают в контекст следующего шага доработки. Ревьюер может и сам вносить мелкие правки через `files` — они тоже материализуются (пункт «обновлённые файлы снова отправляются в Gemini для доработки или проверки»).
-
-Завершение: ревьюер вернул `approved` **и** тесты прошли (если задан `--test-command`) — либо исчерпан лимит `--max-iterations`. `approved` при падающих тестах не принимается: цикл продолжается, а ревью-замечание дополняется требованием починить тесты. Ошибка любого шага останавливает прогон с сохранением журнала и всех версий.
-
-## Установка и запуск
-
+### 1. Проверь окружение
 ```bash
-# 1. Окружение
-export GEMINI_API_KEY="..."                      # ключ Google AI Studio
-npm install -g @anthropic-ai/claude-code         # CLI Claude Code (+ аутентификация)
+python --version          # Python 3.10+
+git --version            # Git установлен
+claude --version         # Claude Code CLI (установи: npm install -g @anthropic-ai/claude-code)
+```
 
-# 2. Запуск (из корня репозитория; либо pip install -e . → команда ai-orchestrator)
+### 2. Запусти мок (без API ключей)
+```bash
+python -m orchestrator.cli \
+    --workspace ./demo-mock \
+    --mock \
+    --verbose
+```
+
+**Результат:** полная git-история всех шагов в `./demo-mock/` — значит всё работает ✓
+
+### 3. Готово!
+```bash
+# Твой первый реальный проект
 python -m orchestrator.cli \
     --workspace ./my-project \
-    --objective "Сделай REST API списка задач на FastAPI с тестами" \
+    --objective "Создай REST API для TODO на FastAPI" \
     --test-command "python -m pytest -q" \
     --max-iterations 4
 ```
 
-Полезные опции: `--gemini-model`, `--claude-model`, `--claude-permission-mode` (по умолчанию `acceptEdits`; набор режимов смотрите в `claude --help` своей версии), `--claude-max-turns`, `--pipeline path.json`, `--objective-file`, `--verbose`.
+---
 
-## Этапы проверки перед запуском
+## 📋 Требования
 
-### 1️⃣ Запуск мока (офлайн, без ключей)
+- **Python** ≥ 3.10
+- **Git** (установлен в PATH)
+- **Claude Code CLI**: `npm install -g @anthropic-ai/claude-code` + авторизация
+- **Gemini API ключ** (для шагов с Gemini):
+  ```bash
+  export GEMINI_API_KEY="..."   # или в .env файл
+  ```
 
-Первым делом проверь, что весь контур работает:
+---
+
+## 📦 Установка
 
 ```bash
-python -m orchestrator.cli --workspace ./demo-mock --mock --verbose
+# Склонируй репо
+git clone <repo-url>
+cd ai-orchestrator
+
+# Опционально: установи для удобства
+pip install -e .
+
+# Или запускай напрямую
+python -m orchestrator.cli --help
 ```
 
-**Что произойдёт:**
-- ✓ Мок-генератор создаст файлы проекта
-- ✓ Мок-доработчик улучшит код
-- ✓ Запустятся тесты
-- ✓ Мок-ревьюер проведёт проверку
-- ✓ Возможны несколько итераций до `approved`
+Никаких других зависимостей — только стандартная Python библиотека.
 
-**Результат:** в `./demo-mock` будет полная git-история всех шагов. Если контур прошёл успешно — всё готово для реального запуска.
+---
 
-### 2️⃣ Проверка Gemini API ключа
+## 🔧 Первый запуск
+
+### Этап 1️⃣: Проверка окружения (2 мин)
+
+```bash
+# Python и Git
+python --version
+git --version
+
+# Claude Code
+claude --version
+
+# Gemini API ключ (если планируешь использовать Gemini)
+python -m scripts.check_gemini_key
+```
+
+Если всё зелёно — переходи к этапу 2.
+
+### Этап 2️⃣: Офлайн-тест контура (мок, без ключей, 3 мин)
+
+```bash
+python -m orchestrator.cli \
+    --workspace ./test-mock \
+    --mock \
+    --verbose
+```
+
+**Что должно произойти:**
+- ✓ Мок создаст файлы проекта
+- ✓ Мок улучшит код
+- ✓ Тесты запустятся
+- ✓ Мок ревьюер проверит, может вернуть замечания
+- ✓ Возможны 1-2 итерации до `approved`
+
+**Результат:** в `./test-mock` полная git-история. Если успешно — весь контур работает.
+
+### Этап 3️⃣: Проверка Gemini API (если планируешь)
 
 ```bash
 python -m scripts.check_gemini_key
+
+# или конкретная модель
 python -m scripts.check_gemini_key --model gemini-2.5-pro
 ```
 
-**Если успешно:** видишь `[OK] Ключ рабочий. Ответ модели: 'Pong'`
+**Успех:** `[OK] Ключ рабочий. Ответ модели: 'Pong'`
 
-**Если ошибка:**
-- `[FAIL] Ключ не найден` → установи `GEMINI_API_KEY` в `.env` или окружение
-- `API_KEY_INVALID` → ключ неправильный
-- `HTTP 403` → доступа нет (включи Generative Language API в Google Cloud)
-- `HTTP 429` → квота исчерпана (подожди 24 часа или обнови план)
-- `HTTP 404` → модель недоступна для этого ключа
+**Ошибки:**
+- `Ключ не найден` → установи `GEMINI_API_KEY` в окружение или `.env`
+- `API_KEY_INVALID` → неправильный ключ
+- `HTTP 403` → включи Generative Language API в Google Cloud
+- `HTTP 429` → квота исчерпана
 
-### 3️⃣ Проверка Claude Code CLI
-
-```bash
-claude --version
-claude --help
-```
-
-**Если ошибка:** установи с `npm install -g @anthropic-ai/claude-code` и авторизуйся
-
-### 4️⃣ Проверка рабочей среды
-
-```bash
-# Python 3.10+
-python --version
-
-# Git
-git --version
-
-# Команда тестирования (если будешь использовать)
-python -m pytest --version
-# или
-python -m unittest discover --help
-```
-
-### 5️⃣ Полный запуск оркестратора
-
-Только после всех проверок:
+### Этап 4️⃣: Первый реальный проект
 
 ```bash
 python -m orchestrator.cli \
     --workspace ./my-project \
-    --objective "Сделай REST API списка задач на FastAPI с тестами" \
+    --objective "REST API списка задач на FastAPI с тестами" \
     --test-command "python -m pytest -q" \
     --max-iterations 4 \
     --verbose
 ```
 
-### Офлайн-проверка контура (без ключей)
+**Опции:**
+- `--gemini-model` (default: `gemini-2.5-pro`)
+- `--claude-model` (выбирается автоматически)
+- `--claude-permission-mode` (default: `acceptEdits`)
+- `--pipeline` (свой конвейер вместо стандартного)
+- `--objective-file` (если цель в файле)
 
-```bash
-python -m orchestrator.cli --workspace ./demo --mock \
-    --test-command "python3 -m unittest discover -q"
-```
+---
 
-Мок-конвейер воспроизводит полный цикл: генерация файлов по манифесту → правка реальных файлов на диске → тесты → ревью с замечаниями → доработка по замечаниям → `approved` на второй итерации. В `./demo` останется настоящая git-история всех ходов.
+## ⚠️ Ограничения и безопасность
 
-## Свой конвейер
+- **Workspace как песочница:** Claude Code и команда тестов исполняют код в каталоге. Для недоверенных задач используй контейнер/VM.
+- **Валидация путей:** абсолютные пути, `..`, запись в `.git` и `.orchestrator` запрещены.
+- **Контроль качества:** основная линия — ревью-шаг и тесты (не блокируй их).
+- **Версии CLI:** флаги Claude Code могут меняться — смотри `claude --help`.
+- **Лимиты контекста:** большие файлы усекаются; используй `files` для ограничения контекста.
 
-Последовательность шагов задаётся JSON-файлом (`--pipeline examples/pipeline.example.json`):
+---
 
-```json
-[
-  {"agent": "gemini", "role": "generate", "instruction": "...", "only_first_iteration": true},
-  {"agent": "claude_code", "role": "refine", "instruction": "..."},
-  {"agent": "gemini", "role": "review", "instruction": "..."}
-]
-```
+## 📖 Подробно
 
-Поля шага: `agent` (ключ в реестре агентов), `role` (`generate` / `refine` / `review` влияют на логику тестов и завершения), `instruction`, `only_first_iteration`, `include_file_contents`, `files` (ограничить контекст конкретными путями).
-
-## Добавление новой модели
-
-Реализуйте `BaseAgent` и зарегистрируйте его в реестре:
-
-```python
-from orchestrator.agents.base import BaseAgent, StepContext, build_prompt
-from orchestrator.protocol import AgentResult, parse_manifest
-
-class MyModelAgent(BaseAgent):
-    name = "my_model"
-    mode = "api"  # или "filesystem", если агент сам работает с диском
-
-    def run(self, ctx: StepContext, workspace) -> AgentResult:
-        prompt = build_prompt(ctx, include_files=True)
-        text = call_my_model(prompt)          # ваш вызов API
-        return parse_manifest(self.name, text)
-```
-
-Для `api`-агента достаточно вернуть манифест — применение к диску, коммит и журналирование сделает оркестратор. Для `filesystem`-агента изменения снимаются с диска автоматически.
-
-## Ограничения и безопасность
-
-* Workspace стоит считать песочницей: Claude Code и команда тестов исполняют код в этом каталоге. Для недоверенных задач запускайте оркестратор в контейнере/VM.
-* Пути из манифестов жёстко валидируются (без `..`, абсолютных путей и записи в служебные каталоги), но содержимое файлов модели определяют сами — ревью-шаг и тесты являются основной линией контроля качества.
-* Флаги Claude Code CLI могут меняться между версиями — адаптер делает их настраиваемыми; актуальный список: `claude --help` и https://docs.claude.com/en/docs/claude-code/overview.
-* Лимиты контекста: большие файлы усекаются при экспорте в промпт (настраивается в `Workspace.export_files`); при необходимости ограничивайте контекст шага полем `files`.
+- **[ARCHITECTURE.md](ARCHITECTURE.md)**
+  - Архитектура и диаграммы системы
+  - Протокол обмена (Gemini API vs Claude Code filesystem)
+  - Версионирование через git-коммиты
+  - Цикл выполнения конвейера и логика завершения
+  - **Свой конвейер** — создание JSON-конвейера
+  - **Расширение** — интеграция новой AI-модели
+  - Ограничения безопасности
+  
+- **[EXAMPLES.md](EXAMPLES.md)**
+  - Примеры команд: FastAPI TODO, Fibonacci, Click CLI
+  - Офлайн-демо (без API ключей и CLI)
+  - Варианты для Bash и PowerShell
