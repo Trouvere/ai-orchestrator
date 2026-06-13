@@ -77,6 +77,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--claude-permission-mode", default="acceptEdits",
                    help="режим прав Claude Code (см. claude --help)")
     p.add_argument("--claude-max-turns", type=int, default=40)
+    p.add_argument("--claude-no-bare", dest="claude_bare", action="store_false", default=True,
+                   help="не передавать --bare: разрешить Claude Code подгружать CLAUDE.md/"
+                        "память/hooks/skills/MCP из дерева каталогов (по умолчанию изолировано)")
 
     p.add_argument("--mock", action="store_true",
                    help="прогон контура на встроенных мок-агентах, без ключей и CLI")
@@ -122,6 +125,7 @@ def main(argv: list[str] | None = None) -> int:
                 claude_cmd=args.claude_cmd,
                 permission_mode=args.claude_permission_mode,
                 max_turns=args.claude_max_turns,
+                bare=args.claude_bare,
             ),
         }
         pipeline = load_pipeline(args.pipeline) if args.pipeline else default_pipeline()
