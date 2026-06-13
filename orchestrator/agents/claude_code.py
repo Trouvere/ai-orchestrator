@@ -48,7 +48,7 @@ class ClaudeCodeAgent(BaseAgent):
         permission_mode: str | None = "acceptEdits",
         allowed_tools: list[str] | None = None,
         dangerously_skip_permissions: bool = False,
-        bare: bool = True,
+        bare: bool = False,
         extra_args: list[str] | None = None,
         timeout: int = 2400,
     ) -> None:
@@ -68,9 +68,10 @@ class ClaudeCodeAgent(BaseAgent):
     def _build_command(self, prompt_file: str) -> list[str]:
         cmd = [self.claude_cmd, "-p", prompt_file, "--output-format", "json"]
         if self.bare:
-            # Изолируем сборку: пропускаем авто-подгрузку CLAUDE.md/памяти/hooks/skills/
-            # MCP/плагинов из дерева каталогов. Иначе headless-Claude, запущенный во
-            # вложенном workspace, подхватил бы CLAUDE.md самого оркестратора.
+            # Изолирует сборку: пропускает авто-подгрузку CLAUDE.md/памяти/hooks/skills/
+            # MCP/плагинов из дерева каталогов. ВНИМАНИЕ: на части версий Claude Code
+            # (проверено на 2.1.173) --bare сбрасывает и авторизацию → "Not logged in".
+            # Поэтому по умолчанию выключено; включай осознанно (см. --claude-bare).
             cmd += ["--bare"]
         if self.model:
             cmd += ["--model", self.model]

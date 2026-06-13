@@ -77,9 +77,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--claude-permission-mode", default="acceptEdits",
                    help="режим прав Claude Code (см. claude --help)")
     p.add_argument("--claude-max-turns", type=int, default=40)
-    p.add_argument("--claude-no-bare", dest="claude_bare", action="store_false", default=True,
-                   help="не передавать --bare: разрешить Claude Code подгружать CLAUDE.md/"
-                        "память/hooks/skills/MCP из дерева каталогов (по умолчанию изолировано)")
+    p.add_argument("--claude-bare", dest="claude_bare", action="store_true", default=False,
+                   help="передать --bare: Claude Code пропустит CLAUDE.md/память/hooks/skills/"
+                        "MCP из дерева каталогов. ОСТОРОЖНО: на некоторых версиях CLI --bare "
+                        "сбрасывает авторизацию ('Not logged in'). По умолчанию выключено.")
 
     p.add_argument("--mock", action="store_true",
                    help="прогон контура на встроенных мок-агентах, без ключей и CLI")
