@@ -50,7 +50,7 @@ EXPECTED RESULT:
 
 TROUBLESHOOTING:
   If you see "ModuleNotFoundError: No module named 'pydantic'" (or any other package):
-    → Run: `python setup_and_test.py` (it now includes explicit verification)
+    → Run: `python quick_setup_and_test.py` (it now includes explicit verification AND detailed environment diagnostics).
     → Check the output of `pip install -r requirements.txt` for errors.
     → Ensure the correct Python interpreter (from the virtual environment) is used.
 
@@ -63,10 +63,11 @@ TROUBLESHOOTING:
     → Check that tests/ directory exists with __init__.py
 
 FILES MODIFIED/CREATED IN THIS ITERATION (Iteration 3):
-  ✓ quick_setup_and_test.py - NEW - Enhanced setup script with better diagnostics
+  ✓ quick_setup_and_test.py - NEW/UPDATED - Enhanced setup script with better diagnostics (now includes `pip freeze` and `sys.path` output before tests)
   ✓ tests/test_main_sync.py - FIXED - Made tests properly isolated with fixture-based client
   ✓ README.md - UPDATED - Recommends quick_setup_and_test.py as primary method
-  ✓ EXECUTION_STEPS.txt - UPDATED - This file (updated with new script reference)
+  ✓ EXECUTION_STEPS.txt - UPDATED - This file (updated with new script reference and diagnostics)
+  ✓ STATUS_REPORT.md - UPDATED - Reflects new diagnostic steps
 
 PROJECT STRUCTURE VERIFIED:
   ✓ app/main.py - FastAPI application
@@ -78,4 +79,4 @@ PROJECT STRUCTURE VERIFIED:
   ✓ pytest.ini - Test configuration
 
 NEXT ACTION:
-  Run the recommended installation and test command: `python setup_and_test.py`
+  Run the recommended installation and test command: `python quick_setup_and_test.py`

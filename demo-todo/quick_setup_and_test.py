@@ -73,7 +73,7 @@ def main():
     # Step 2: Upgrade pip
     if not run_command(
         [str(python_exe), "-m", "pip", "install", "--upgrade", "pip"],
-        "Step 1: Upgrading pip"
+        "Step 2: Upgrading pip"
     ):
         return 1
 
@@ -81,13 +81,13 @@ def main():
     requirements_file = project_root / "requirements.txt"
     if not run_command(
         [str(pip_exe), "install", "-r", str(requirements_file)],
-        "Step 2: Installing dependencies from requirements.txt"
+        "Step 3: Installing dependencies from requirements.txt"
     ):
         return 1
 
     # Step 4: Verify imports
     print(f"\n{'=' * 60}")
-    print("📌 Step 3: Verifying critical packages")
+    print("📌 Step 4: Verifying critical packages")
     print(f"{'=' * 60}")
 
     critical_packages = ["pydantic", "fastapi", "httpx", "pytest", "pytest_asyncio"]
@@ -111,9 +111,35 @@ def main():
         print("\n⚠️  Some packages failed to import. Check the errors above.")
         return 1
 
-    # Step 5: Run tests
+    # NEW Step 5: Additional environment diagnostics before running tests
     print(f"\n{'=' * 60}")
-    print("📌 Step 4: Running tests")
+    print("📌 Step 5: Final environment diagnostics before tests")
+    print(f"{'=' * 60}")
+
+    print("\n--- Current pip freeze output in virtual environment ---")
+    run_command(
+        [str(pip_exe), "freeze"],
+        "Listing installed packages",
+        show_output=True
+    )
+
+    print("\n--- Current sys.path in virtual environment ---")
+    run_command(
+        [str(python_exe), "-c", "import sys; print(sys.path);"],
+        "Printing sys.path",
+        show_output=True
+    )
+
+    print("\n--- Verifying Pydantic import and version in virtual environment ---")
+    run_command(
+        [str(python_exe), "-c", "import pydantic; print(f'Pydantic version: {pydantic.__version__}')"],
+        "Verifying Pydantic version",
+        show_output=True
+    )
+
+    # Step 6: Run tests
+    print(f"\n{'=' * 60}")
+    print("📌 Step 6: Running tests")
     print(f"{'=' * 60}\n")
 
     test_result = subprocess.run(

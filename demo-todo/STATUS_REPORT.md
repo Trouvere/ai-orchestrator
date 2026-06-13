@@ -80,18 +80,20 @@ This is a FastAPI REST API for managing a TODO list with full CRUD operations, P
 
 ### Enhanced Setup Script Added ✓
 - **File**: `quick_setup_and_test.py` - NEW, recommended setup approach
-- **Features**:
+- **Features**: 
   - Creates virtual environment automatically
   - Upgrades pip
   - Installs all dependencies from requirements.txt
   - Verifies each critical package import
+  - **NEW**: Includes additional diagnostic steps to print `pip freeze` and `sys.path` from within the virtual environment just before running tests.
   - Provides detailed error messages if something goes wrong
   - Runs tests with verbose output
 - **Usage**: `python quick_setup_and_test.py`
 
 ### Documentation Updated ✓
 - **README.md**: Now recommends `quick_setup_and_test.py` as primary method
-- **EXECUTION_STEPS.txt**: Updated to reference new script
+- **EXECUTION_STEPS.txt**: Updated to reference new script and diagnostic steps
+- **STATUS_REPORT.md**: This file (updated to reflect new diagnostic steps)
 
 ## Current Blocker
 
@@ -173,7 +175,7 @@ tests/test_main_sync.py::test_update_todo_validation_error PASSED
 - `pytest.ini` - Pytest configuration (updated)
 - `install_deps.py` - Dependency installer
 - `setup_and_test.py` - Cross-platform setup script
-- `quick_setup_and_test.py` - Enhanced setup script with better diagnostics (NEW - Iteration 3)
+- `quick_setup_and_test.py` - Enhanced setup script with better diagnostics (NEW/UPDATED - Iteration 3)
 - `run_tests.sh` - Linux/macOS test runner
 - `run_tests.bat` - Windows test runner
 
@@ -182,7 +184,7 @@ tests/test_main_sync.py::test_update_todo_validation_error PASSED
 - `TESTING_GUIDE.md` - Testing information
 - `SETUP_INSTRUCTIONS.md` - Setup guide (NEW)
 - `EXECUTION_STEPS.txt` - Execution instructions (NEW)
-- `STATUS_REPORT.md` - This file (NEW)
+- `STATUS_REPORT.md` - This file (UPDATED)
 
 ## Summary
 
@@ -201,7 +203,7 @@ Once dependencies are installed and tests pass, the project will be ready for:
 ---
 
 **Last Updated**: Iteration 3, Claude Refinement
-**Changes**: Fixed test isolation bug, added enhanced setup script, updated documentation
+**Changes**: Fixed test isolation bug, added enhanced setup script with new diagnostics, updated documentation
 **Verification**: All code reviewed and validated
 **Test Coverage**: 16 comprehensive test functions (now properly isolated)
 **Code Quality**: ✓ Excellent
