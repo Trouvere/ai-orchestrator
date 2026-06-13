@@ -9,6 +9,15 @@ import sys
 
 def install_dependencies():
     """Install dependencies using pip."""
+    print("Upgrading pip...")
+    result = subprocess.run(
+        [sys.executable, "-m", "pip", "install", "--upgrade", "pip"],
+        capture_output=False
+    )
+    if result.returncode != 0:
+        print("Failed to upgrade pip.")
+        return False
+
     print("Installing dependencies from requirements.txt...")
     result = subprocess.run(
         [sys.executable, "-m", "pip", "install", "-r", "requirements.txt"],

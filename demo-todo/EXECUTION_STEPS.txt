@@ -3,30 +3,30 @@ FASTAPI TODO PROJECT - EXECUTION STEPS
 
 CURRENT STATUS:
   Code: ✓ Complete and correct
-  Tests: ✓ Comprehensive and passing (when dependencies are installed)
-  Setup: PENDING - Dependencies need installation
+  Tests: ✗ Failing due to ModuleNotFoundError (Pydantic)
+  Setup: PENDING - Dependencies need robust installation and verification
 
-CRITICAL STEP - INSTALL DEPENDENCIES:
-  This MUST be done before running tests.
+CRITICAL STEP - INSTALL DEPENDENCIES AND RUN TESTS:
+  This MUST be done before tests can pass.
 
-  Option A (Windows):
-    cd C:\git\GODEL\ai\hachaton\t1\ai-orchestrator\demo-todo
-    python install_deps.py
+  RECOMMENDED (Cross-platform, robust):
+    python setup_and_test.py
 
-  Option B (Any platform):
-    pip install -r requirements.txt
+  Option A (Windows - alternative):
+    run_tests.bat
 
-  Option C (With virtual environment):
+  Option B (Linux/macOS - alternative):
+    ./run_tests.sh
+
+  Option C (Manual with virtual environment - for debugging):
     python -m venv .venv
     .venv\Scripts\activate.bat  (Windows)
     source .venv/bin/activate   (Linux/macOS)
     pip install -r requirements.txt
+    python -m pytest tests/ -v
 
-VERIFY INSTALLATION:
-  python -c "import fastapi, httpx, pytest, pytest_asyncio; print('✓ All imports successful')"
-
-RUN TESTS:
-  python -m pytest tests/ -v
+VERIFY INSTALLATION (Automated in `setup_and_test.py`):
+  python -c "import fastapi, httpx, pytest, pytest_asyncio, pydantic; print('✓ All imports successful')"
 
 EXPECTED RESULT:
   All 16 tests should PASS (8 async + 8 sync)
@@ -50,11 +50,13 @@ EXPECTED RESULT:
   tests/test_main_sync.py::test_update_todo_validation_error PASSED
 
 TROUBLESHOOTING:
-  If you see "ModuleNotFoundError: No module named 'fastapi'":
-    → Run: pip install -r requirements.txt
+  If you see "ModuleNotFoundError: No module named 'pydantic'" (or any other package):
+    → Run: `python setup_and_test.py` (it now includes explicit verification)
+    → Check the output of `pip install -r requirements.txt` for errors.
+    → Ensure the correct Python interpreter (from the virtual environment) is used.
 
   If you see "PytestConfigWarning: Unknown config option: asyncio_mode":
-    → Run: pip install pytest-asyncio
+    → Run: `pip install pytest-asyncio` (should be handled by `requirements.txt`)
 
   If tests are not collected:
     → Make sure you're in project root directory
@@ -62,11 +64,10 @@ TROUBLESHOOTING:
     → Check that tests/ directory exists with __init__.py
 
 FILES MODIFIED/CREATED IN THIS ITERATION:
-  ✓ tests/conftest.py - New pytest configuration file
-  ✓ pytest.ini - Updated for better compatibility
-  ✓ install_deps.py - New simple installer script
-  ✓ SETUP_INSTRUCTIONS.md - Comprehensive setup guide
-  ✓ EXECUTION_STEPS.txt - This file
+  ✓ setup_and_test.py - Enhanced for robustness and verification
+  ✓ install_deps.py - Enhanced for robustness
+  ✓ EXECUTION_STEPS.txt - This file (updated)
+  ✓ SETUP_INSTRUCTIONS.md - Updated for clarity
 
 PROJECT STRUCTURE VERIFIED:
   ✓ app/main.py - FastAPI application
@@ -78,4 +79,4 @@ PROJECT STRUCTURE VERIFIED:
   ✓ pytest.ini - Test configuration
 
 NEXT ACTION:
-  Run the installation command from "CRITICAL STEP" section above.
+  Run the recommended installation and test command: `python setup_and_test.py`

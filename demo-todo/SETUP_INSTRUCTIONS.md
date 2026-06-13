@@ -2,29 +2,28 @@
 
 ## Quick Start
 
-### Windows Users
-
-Run one of the following:
+### Recommended (Cross-platform, robust setup and test runner)
 
 ```bash
-# Option 1: Using Python script (recommended)
-python install_deps.py
-python -m pytest tests/ -v
-
-# Option 2: Using batch script
-run_tests.bat
-
-# Option 3: Using Python setup script
 python setup_and_test.py
 ```
 
-### Linux/macOS Users
+### Alternative Options
+
+#### Windows Users
 
 ```bash
-# Run the shell script
+# Option 1: Using batch script
+run_tests.bat
+```
+
+#### Linux/macOS Users
+
+```bash
+# Option 1: Run the shell script
 ./run_tests.sh
 
-# Or manually:
+# Option 2: Manual setup (for debugging)
 python -m venv .venv
 source .venv/bin/activate  # or: . .venv/bin/activate
 pip install -r requirements.txt
@@ -34,13 +33,12 @@ python -m pytest tests/ -v
 ## Current Status
 
 ✓ **Code Quality**: All application code is complete and correct
-✓ **Test Coverage**: Comprehensive test suite with 8 test functions
-✓ **Documentation**: Complete setup and testing guides
-✗ **Dependency Installation**: Dependencies must be installed before running tests
+✓ **Test Coverage**: Comprehensive test suite with 16 test functions
+✗ **Dependency Installation**: Dependencies must be installed and verified before running tests successfully
 
 ## Critical Requirement
 
-Before running tests, you MUST install the project dependencies:
+Before running tests, you MUST ensure the project dependencies are installed and accessible. The `setup_and_test.py` script now handles this robustly, including verification.
 
 ```bash
 pip install -r requirements.txt
@@ -56,20 +54,13 @@ This installs:
 
 ## Verification Steps
 
-1. **Install dependencies**:
+1. **Run the comprehensive setup and test script**:
    ```bash
-   pip install -r requirements.txt
+   python setup_and_test.py
    ```
+   This script will create a virtual environment (if needed), upgrade pip, install dependencies, verify critical imports, and then run all tests.
 
-2. **Verify installation**:
-   ```bash
-   pip freeze | grep -E "fastapi|httpx|pytest|pydantic"
-   ```
-
-3. **Run tests**:
-   ```bash
-   python -m pytest tests/ -v
-   ```
+2. **Expected output**: The script should report "All critical dependencies verified." and then all 16 tests should PASS.
 
 ## Expected Test Results
 
@@ -81,11 +72,11 @@ All tests should PASS. There are two test suites:
 - Requires: httpx, fastapi, pytest-asyncio
 
 ### Sync Tests (tests/test_main_sync.py)  
-- Uses `fastapi.TestClient` for synchronous testing
+- Uses `fastapi.testclient.TestClient` for synchronous testing
 - 8 test functions covering all endpoints
 - Requires: fastapi only (TestClient is built-in)
 
-Run both:
+Run both (via `setup_and_test.py` or manually):
 ```bash
 python -m pytest tests/ -v
 ```
@@ -116,8 +107,8 @@ python -m pytest tests/test_main_sync.py -v
 │   └── test_main_sync.py # Synchronous tests
 ├── requirements.txt      # Python dependencies
 ├── pytest.ini            # Pytest configuration
-├── install_deps.py       # Simple dependency installer
-├── setup_and_test.py     # Cross-platform setup and test runner
+├── install_deps.py       # Simple dependency installer (updated)
+├── setup_and_test.py     # Cross-platform setup and test runner (updated)
 ├── run_tests.sh          # Linux/macOS test runner
 ├── run_tests.bat         # Windows test runner
 ├── README.md             # Project documentation
@@ -126,17 +117,17 @@ python -m pytest tests/test_main_sync.py -v
 
 ## Troubleshooting
 
-### Error: "ModuleNotFoundError: No module named 'httpx'"
-**Solution**: Run `pip install -r requirements.txt`
+### Error: "ModuleNotFoundError: No module named 'pydantic'" (or similar for other packages)
+**Solution**: Run `python setup_and_test.py`. This script will attempt to install dependencies and explicitly verify their import. Review its output carefully for any installation errors.
 
 ### Error: "PytestConfigWarning: Unknown config option: asyncio_mode"
-**Solution**: Ensure pytest-asyncio is installed: `pip install pytest-asyncio`
+**Solution**: Ensure `pytest-asyncio` is installed: `pip install pytest-asyncio` (this should be handled by `requirements.txt` and `setup_and_test.py`).
 
 ### Tests fail to import from app
-**Solution**: Make sure you're running pytest from the project root directory where `pytest.ini` is located
+**Solution**: Make sure you're running pytest from the project root directory where `pytest.ini` is located, or use `python setup_and_test.py`.
 
 ### Permission denied when running scripts
-**Solution**: Use Python directly: `python setup_and_test.py` or `python -m pytest tests/ -v`
+**Solution**: Use Python directly: `python setup_and_test.py` or `python -m pytest tests/ -v`.
 
 ## API Endpoints Reference
 
@@ -152,10 +143,9 @@ All endpoints are fully implemented and tested:
 
 ## Next Steps
 
-1. Install dependencies: `pip install -r requirements.txt`
-2. Run tests: `python -m pytest tests/ -v`
-3. All tests should pass ✓
-4. Start the application: `uvicorn app.main:app --reload`
+1. Run `python setup_and_test.py`
+2. All tests should pass ✓
+3. Start the application: `uvicorn app.main:app --reload`
 
 ## Support
 

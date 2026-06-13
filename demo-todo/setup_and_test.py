@@ -25,6 +25,16 @@ def main():
         python_exe = venv_dir / "bin" / "python"
         pip_exe = venv_dir / "bin" / "pip"
 
+    # Ensure pip is up-to-date within the virtual environment
+    print("Upgrading pip...")
+    result = subprocess.run(
+        [str(python_exe), "-m", "pip", "install", "--upgrade", "pip"],
+        cwd=project_root
+    )
+    if result.returncode != 0:
+        print("Failed to upgrade pip")
+        return 1
+
     # Step 2: Install dependencies
     print("Installing dependencies...")
     requirements_file = project_root / "requirements.txt"
@@ -39,7 +49,33 @@ def main():
 
     print("Dependencies installed successfully")
 
-    # Step 3: Run tests
+    # Step 3: Verify critical imports using the venv's python
+    print("\nVerifying critical imports...")
+    critical_packages = ["pydantic", "fastapi", "httpx", "pytest", "pytest_asyncio"]
+    for pkg in critical_packages:
+        print(f"  Checking '{pkg}'...")
+        # Use the venv's python to try importing the package
+        import_check_command = [
+            str(python_exe),
+            "-c",
+            f"import {pkg}; print(f'✓ {pkg} imported successfully')"
+        ]
+        check_result = subprocess.run(
+            import_check_command,
+            cwd=project_root,
+            capture_output=True,
+            text=True
+        )
+        if check_result.returncode != 0:
+            print(f"✗ {pkg} import failed. Output:\n{check_result.stderr}")
+            print("Dependency verification failed. Exiting.")
+            return 1
+        else:
+            print(check_result.stdout.strip())
+
+    print("All critical dependencies verified.")
+
+    # Step 4: Run tests
     print("\nRunning tests...")
     test_result = subprocess.run(
         [str(python_exe), "-m", "pytest", "tests/", "-v"],
