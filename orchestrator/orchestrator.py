@@ -114,6 +114,22 @@ class Orchestrator:
 
     def _run_tests(self) -> tuple[bool, str]:
         assert self.test_command
+
+        # Убедиться, что зависимости установлены (важно для первого запуска)
+        req_file = self.workspace.root / "requirements.txt"
+        if req_file.is_file():
+            log.info("   установка зависимостей...")
+            install_proc = subprocess.run(
+                "pip install -q -r requirements.txt",
+                shell=True,
+                cwd=self.workspace.root,
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+            if install_proc.returncode != 0:
+                log.warning("   ошибка при установке зависимостей: %s", install_proc.stderr[:200])
+
         log.info("   запускаю тесты: %s", self.test_command)
         try:
             proc = subprocess.run(

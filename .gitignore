@@ -10,3 +10,13 @@ __pycache__/
 .pytest_cache/
 build/
 dist/
+
+# # virtual environments
+# .venv/
+# venv/
+
+# # orchestrator artifacts
+# .orchestrator/
+
+# node
+node_modules/

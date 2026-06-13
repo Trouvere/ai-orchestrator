@@ -19,7 +19,6 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
-import tempfile
 from pathlib import Path
 
 from ..protocol import AgentResult, Status, extract_json
@@ -106,11 +105,9 @@ class ClaudeCodeAgent(BaseAgent):
 
         prompt = build_prompt(ctx, include_files=False) + "\n\n" + CLAUDE_CODE_TASK_SUFFIX
 
-        # На Windows передача длинного промпта через аргумент может вызвать ошибку,
-        # поэтому пишем промпт во временный файл с явным именем
-        temp_dir = Path(tempfile.gettempdir()) / "claude-orchestrator"
-        temp_dir.mkdir(exist_ok=True)
-        prompt_file = str(temp_dir / "prompt.txt")
+        # Пишем промпт в файл внутри workspace, чтобы избежать проблем с temp путями на Windows
+        prompt_file = str(workspace.root / ".orchestrator" / "current_prompt.txt")
+        Path(prompt_file).parent.mkdir(parents=True, exist_ok=True)
         Path(prompt_file).write_text(prompt, encoding="utf-8")
 
         try:
@@ -122,17 +119,16 @@ class ClaudeCodeAgent(BaseAgent):
                 cwd=workspace.root,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=self.timeout,
             )
         except subprocess.TimeoutExpired:
-            Path(prompt_file).unlink(missing_ok=True)
             return AgentResult(
                 agent=self.name,
                 status=Status.ERROR,
                 summary=f"Claude Code не уложился в таймаут {self.timeout} с",
             )
-        finally:
-            Path(prompt_file).unlink(missing_ok=True)
 
         text, is_error = self._final_text(proc.stdout)
         raw = proc.stdout + ("\n--- stderr ---\n" + proc.stderr if proc.stderr else "")
