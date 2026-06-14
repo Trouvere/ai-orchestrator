@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import time
 import urllib.error
@@ -22,6 +23,8 @@ import urllib.request
 
 from ..protocol import AgentResult, Status, parse_manifest
 from .base import BaseAgent, StepContext, build_prompt
+
+log = logging.getLogger("orchestrator.gemini")
 
 API_URL_TEMPLATE = (
     "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
@@ -52,10 +55,12 @@ class GeminiAgent(BaseAgent):
         max_output_tokens: int = 65_536,
         timeout: int = 300,
         retries: int = 2,
+        parse_retries: int = 2,
         system_prompt: str = GEMINI_SYSTEM_PROMPT,
     ) -> None:
         self.name = name
         self.model = model
+        self.parse_retries = parse_retries
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
         self.temperature = temperature
         self.max_output_tokens = max_output_tokens
@@ -117,29 +122,49 @@ class GeminiAgent(BaseAgent):
 
         prompt = build_prompt(ctx, include_files=True)
         system_text = self.system_prompt + "\n\n" + MANIFEST_SCHEMA_HINT
-        full_request = system_text + "\n\n=== ЗАДАЧА (user) ===\n" + prompt
-        payload = {
-            "systemInstruction": {"parts": [{"text": system_text}]},
-            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "temperature": self.temperature,
-                "maxOutputTokens": self.max_output_tokens,
-                "responseMimeType": "application/json",
-            },
-        }
-        data = self._request(payload)
-        text = self._extract_text(data)
-        try:
-            result = parse_manifest(self.name, text)
-        except ValueError as exc:
-            result = AgentResult(
-                agent=self.name,
-                status=Status.ERROR,
-                summary=f"не удалось разобрать манифест Gemini: {exc}",
-                raw=text,
-            )
-        result.prompt = full_request
-        return result
+
+        # При битом JSON переспрашиваем модель, указывая на конкретную ошибку:
+        # типичный случай — модель не экранировала кавычки/переводы строк в content.
+        correction = ""
+        text = ""
+        last_exc: Exception | None = None
+        for attempt in range(self.parse_retries + 1):
+            user_text = prompt + correction
+            payload = {
+                "systemInstruction": {"parts": [{"text": system_text}]},
+                "contents": [{"role": "user", "parts": [{"text": user_text}]}],
+                "generationConfig": {
+                    "temperature": self.temperature,
+                    "maxOutputTokens": self.max_output_tokens,
+                    "responseMimeType": "application/json",
+                },
+            }
+            text = self._extract_text(self._request(payload))
+            try:
+                result = parse_manifest(self.name, text)
+                result.prompt = system_text + "\n\n=== ЗАДАЧА (user) ===\n" + user_text
+                return result
+            except ValueError as exc:
+                last_exc = exc
+                log.warning(
+                    "Gemini вернул невалидный манифест (попытка %d/%d): %s",
+                    attempt + 1, self.parse_retries + 1, exc,
+                )
+                correction = (
+                    "\n\n=== ВНИМАНИЕ: ПРЕДЫДУЩИЙ ОТВЕТ ОТКЛОНЁН ===\n"
+                    f"Твой прошлый ответ не распарсился как JSON ({exc}). "
+                    "Верни СТРОГО один валидный JSON-объект по схеме выше. Внутри строковых "
+                    "значений (особенно \"content\") экранируй двойные кавычки как \\\" и "
+                    "переводы строк как \\n; НЕ используй тройные кавычки и Markdown-ограждения."
+                )
+
+        return AgentResult(
+            agent=self.name,
+            status=Status.ERROR,
+            summary=f"не удалось разобрать манифест Gemini после {self.parse_retries + 1} попыток: {last_exc}",
+            raw=text,
+            prompt=system_text + "\n\n=== ЗАДАЧА (user) ===\n" + prompt + correction,
+        )
 
 
 __all__ = ["GeminiAgent"]
